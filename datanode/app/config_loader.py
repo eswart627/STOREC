@@ -1,0 +1,48 @@
+import configparser
+import os
+
+class Config:
+    def __init__(self, path: str):
+        if not os.path.exists(path):
+            raise FileNotFoundError(path)
+        parser = configparser.ConfigParser()
+        parser.read(path)
+
+        # node init
+        self.node_id = parser.get("NODE", "node_id")
+        self.hostname = parser.get("NODE","hostname")
+        self.port = parser.getint("NODE", "port")
+        self.capacity_bytes = parser.getint(
+            "STORAGE",
+            "capacity_bytes"
+        )
+        self.heartbeat_interval = parser.getint(
+            "HEARTBEAT",
+            "interval_seconds",
+            fallback=5
+        )
+        # name node
+        self.namenode_host = os.getenv(
+            "NAMENODE_HOST", parser.get("NAMENODE", "host")
+        )
+        self.namenode_port = os.getenv(
+            "NAMENODE_PORT", parser.get("NAMENODE", "port")
+        )
+
+        #storage
+        self.data_dir = parser.get(
+            "STORAGE", "data_dir"
+        )
+
+        #server
+        self.worker_threads = parser.getint(
+            "SERVER", "worker_threads"
+        )
+
+        self.validate()
+
+    def validate(self):
+        if not self.node_id:
+            raise ValueError("node_id missing")
+        if not self.namenode_host:
+            raise ValueError("namenode host missing")

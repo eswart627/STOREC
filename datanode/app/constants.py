@@ -1,0 +1,10 @@
+APP_NAME = "DATANODE"
+
+DEFAULT_HEARTBEAT_INTERVAL = 5
+
+DATA_DIR_NAME = "data"
+CHUNKS_DIR_NAME = "chunks"
+TMP_DIR_NAME = "tmp"
+
+LOG_DIR_NAME = "logs"
+LOG_FILE_NAME = "datanode.log"
