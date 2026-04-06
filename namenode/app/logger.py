@@ -5,7 +5,8 @@ import time
 class Logger:
 
     def __init__(self, base_dir):
-
+        print("Base directory for Logger:", base_dir)
+        # Debug print to verify base directory for Logger
         self.log_dir = os.path.join(
             base_dir,
             "logs",
@@ -18,6 +19,12 @@ class Logger:
             self.log_dir,
             "namenode.log",
         )
+        print("\nLog file path:", self.file)  # Debug print to verify log file path
+        # Clear the log file at the start of execution
+        with open(self.file, "w") as f:
+            f.truncate(0)  # Truncate the file to ensure it starts empty
+        print("Cleared log file at the start of execution.", flush=True)  # Debug print to confirm clearing
+
     def log(
         self,
         event,

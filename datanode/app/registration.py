@@ -1,4 +1,5 @@
 import time
+import datetime
 
 from proto import common_pb2
 from proto import namenode_pb2
@@ -22,9 +23,10 @@ class RegistrationManager:
             try:
                 response = self.rpc.stub.RegisterDataNode(request)
                 if response.status.success:
+                    current_time = datetime.datetime.now().strftime("%H:%M:%S")  # Format time as HH:MM:SS
                     self.logger.log(
                         "REGISTER_SUCCESS",
-                        self.config.node_id
+                        f"{self.config.node_id} at {current_time}"
                     )
                     return
             except Exception as e:
