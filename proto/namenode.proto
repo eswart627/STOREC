@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package proto;
+
+import "proto/common.proto";
+
+service NameNodeService {
+    // DataNode registration
+    rpc RegisterDataNode (RegisterRequest)
+    returns (RegisterResponse);
+
+    // Heartbeat
+    rpc SendHeartbeat (HeartbeatRequest) 
+    returns (HeartbeatResponse);
+
+    // Allocate stripe placement
+    rpc AllocateStripe (
+        AllocateStripeRequest
+    ) returns (
+        AllocateStripeResponse
+    );
+
+    // Report stored shard
+    rpc ReportShard (
+        ReportShardRequest
+    ) returns (
+        ReportShardResponse
+    );
+
+}
+
+message RegisterRequest {
+    NodeId node = 1;
+    int64 capacity_bytes = 2;
+}
+
+message RegisterResponse {
+    Status status = 1;
+}
+
+message HeartbeatRequest {
+    Heartbeat heartbeat = 1;
+}
+
+message HeartbeatResponse {
+    Status status = 1;
+}
+
+message AllocateStripeRequest {
+    string file_name = 1;
+    ECPolicy policy = 2;
+}
+
+message AllocateStripeResponse {
+    Status status = 1;
+    StripeId stripe = 2;
+    repeated ShardPlacement placements = 3;
+}
+
+message ReportShardRequest {
+    ShardMetadata shard = 1;
+    NodeId node = 2;
+}
+
+message ReportShardResponse {
+    Status status = 1;
+}

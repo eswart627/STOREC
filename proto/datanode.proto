@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package proto;
+
+import "proto/common.proto";
+
+service DataNodeService {
+    rpc WriteShard (
+        WriteShardRequest
+    ) returns (
+        WriteShardResponse
+    );
+
+    rpc ReadShard (
+        ReadShardRequest
+    ) returns (
+        ReadShardResponse
+    );
+
+    rpc DeleteShard (
+        DeleteShardRequest
+    ) returns (
+        DeleteShardResponse
+    );
+}
+
+message WriteShardRequest {
+    ShardMetadata shard = 1;
+    bytes data = 2;
+}
+
+message WriteShardResponse {
+    Status status = 1;
+}
+
+message ReadShardRequest {
+    ShardId shard = 1;
+}
+
+message ReadShardResponse {
+    Status status = 1;
+    bytes data = 2;
+}
+
+message DeleteShardRequest {
+    ShardId shard = 1;
+}
+
+message DeleteShardResponse {
+    Status status = 1;
+}
