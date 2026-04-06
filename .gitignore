@@ -1,3 +1,5 @@
 log/
 data/
 __pycache__/
+*_pb2.py
+*_pb2_grpc.py
