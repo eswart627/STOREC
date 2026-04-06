@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package proto;
 
-import "proto/common.proto";
+import "common.proto";
 
 service NameNodeService {
     // DataNode registration
@@ -53,7 +53,10 @@ message AllocateStripeRequest {
 
 message AllocateStripeResponse {
     Status status = 1;
+    //how would namenode get Stripe ID?
     StripeId stripe = 2;
+    //Shardplacement has metadatashard has StripeId?
+    //also why repeated? afaik one stripe needs one placement
     repeated ShardPlacement placements = 3;
 }
 

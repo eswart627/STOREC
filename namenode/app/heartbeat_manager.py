@@ -1,0 +1,3 @@
+class HeartbeatManager:
+    
+    pass

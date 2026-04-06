@@ -8,17 +8,9 @@ from namenode.app.server import NameNodeServer
 
 def main():
 
-    base_dir = (
-        Path(__file__)
-        .resolve()
-        .parents[1]
-    )
+    base_dir = Path(__file__).resolve().parents[1]
 
-    config_path = (
-        base_dir
-        / "config"
-        / "namenode.config"
-    )
+    config_path = base_dir / "config" / "namenode.config"
 
     config = Config(str(config_path))
 
@@ -26,11 +18,7 @@ def main():
 
     registry = DataNodeRegistry()
 
-    server = NameNodeServer(
-        config,
-        registry,
-        logger,
-    )
+    server = NameNodeServer(config,registry,logger)
 
     server.start()
 
