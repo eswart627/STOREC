@@ -59,6 +59,14 @@ def main():
     storage=storage
     )
     heartbeat.start()
+    
+    print("DataNode is fully operational. Press Ctrl+C to stop.", flush=True)
+    try:
+        while True:
+            time.sleep(1)  # Just sit here and wait
+    except KeyboardInterrupt:
+        print("\nShutting down DataNode...", flush=True)
+        server.stop()
 
 if __name__ == "__main__":
     main()
