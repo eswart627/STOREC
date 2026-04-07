@@ -7,7 +7,7 @@ protobuf files compilation:
 python -m grpc_tools.protoc ^ -I . ^ --python_out=. ^ --grpc_python_out=. ^ proto\common.proto ^ proto\namenode.proto ^ proto\datanode.proto
 
 for datanode: python -m datanode.app.main
-for namenode: python -m namemnode.app.main
+for namenode: python -m namenode.app.main
 
 
 

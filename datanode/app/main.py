@@ -1,36 +1,38 @@
 import os
-
+import time
+#from STOREC.datanode.app import heartbeat
 from datanode.app.config_loader import Config
 from datanode.app.logger import Logger
 from datanode.app.storage_manager import StorageManager
 from datanode.app.server import DataNodeServer
 from datanode.app.rpc_client import RPCClient
 from datanode.app.registration import RegistrationManager
+from datanode.app.heartbeat import HeartbeatManager
 
 def main():
+    # This gets the 'storec' directory where you run the command from
     base_dir = os.getcwd()
 
-    config_path = os.path.join(
-        base_dir, "datanode","config",
-        "datanode.config"
-    )
+    # 1. Load Config
+    config_path = os.path.join(base_dir, "datanode", "config", "datanode.config")
     config = Config(path=config_path)
 
-    logger = Logger(base_dir)
+    # 2. Initialize Logger 
+    # REMOVED (base_dir) because the new Logger handles its own path!
+    logger = Logger() 
+    
     logger.log(
         "STARTUP", 
         f"node={config.node_id}"
     )
 
-    storage_root = os.path.join(
-        base_dir, "datanode",config.data_dir
-    )
-    storage = StorageManager(
-        base_dir=storage_root
-    )
+    # 3. Setup Storage
+    storage_root = os.path.join(base_dir, "datanode", config.data_dir)
+    storage = StorageManager(base_dir=storage_root)
     storage.initialize()
     logger.log("STORAGE_INIT", storage_root)
 
+    # 4. Networking & Server
     rpc = RPCClient(config, logger)
     rpc.connect()
 
@@ -41,12 +43,30 @@ def main():
     )
     registration.register()
 
+    print("Starting DataNode server", flush=True)  # Debug print before server starts
     server = DataNodeServer(
         config=config, 
         logger=logger,
         storage=storage
     )
     server.start()
+
+    print("Starting HeartbeatManager", flush=True)  # Debug print before heartbeat starts
+    heartbeat = HeartbeatManager(
+    rpc_client=rpc,
+    config=config,
+    logger=logger,
+    storage=storage
+    )
+    heartbeat.start()
+    
+    print("DataNode is fully operational. Press Ctrl+C to stop.", flush=True)
+    try:
+        while True:
+            time.sleep(1)  # Just sit here and wait
+    except KeyboardInterrupt:
+        print("\nShutting down DataNode...", flush=True)
+        server.stop()
 
 if __name__ == "__main__":
     main()

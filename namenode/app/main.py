@@ -16,9 +16,17 @@ def main():
 
     logger = Logger(base_dir)
 
+    print("Initializing DataNode registry", flush=True)  # Debug print to indicate registry initialization
     registry = DataNodeRegistry()
 
-    server = NameNodeServer(config,registry,logger)
+    print("Initializing NameNode server", flush=True)  # Debug print to indicate server initialization
+    server = NameNodeServer(
+        config,
+        registry,
+        logger,
+    )
+
+    print("Starting NameNode server", flush=True)  # Debug print to indicate server startup
 
     server.start()
 

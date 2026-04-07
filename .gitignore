@@ -1,4 +1,4 @@
-log/
+logs/
 data/
 __pycache__/
 *_pb2.py
@@ -7,4 +7,4 @@ doubts.txt
 *_pb2.pyi
 logs/
 scripts
-myenv
+myenv/

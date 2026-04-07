@@ -1,10 +1,15 @@
 import grpc
+import os
+import time
+import datetime
 
 from concurrent.futures import ThreadPoolExecutor
 
 from proto import namenode_pb2
 from proto import namenode_pb2_grpc
 from proto import common_pb2
+
+from namenode.app.heartbeat_manager import HeartbeatManager
 
 import random
 
@@ -15,6 +20,7 @@ class NameNodeService(
     def __init__(self, registry, logger):
         self.registry = registry
         self.logger = logger
+        self.heartbeat_manager = HeartbeatManager(self.logger)
 
     def RegisterDataNode(self, request, context):
         """
@@ -35,9 +41,10 @@ class NameNodeService(
             capacity=request.capacity_bytes,
         )
 
+        current_time = datetime.datetime.now().strftime("%H:%M:%S")  # Format time as HH:MM:SS
         self.logger.log(
             "REGISTER",
-            node.node_id,
+            f"{node.node_id} at {current_time}",
         )
 
         return namenode_pb2.RegisterResponse(
@@ -57,15 +64,8 @@ class NameNodeService(
         Returns:
             HeartbeatResponse(Status(success:bool,message:str))
         """
-        hb = request.heartbeat
-
-        self.registry.heartbeat(hb.node_id)
-        self.logger.log("HEARTBEAT", f"node={hb.node_id},timestamp={hb.timestamp}, used_bytes={hb.used_bytes}, free_bytes={hb.free_bytes}")
-        return namenode_pb2.HeartbeatResponse(
-            status=common_pb2.Status(
-                success=True
-            )
-        )
+        
+        return self.heartbeat_manager.handle_heartbeat(request, context)
 
     def AllocateStripe(self, request, context):
         """
@@ -139,11 +139,15 @@ class NameNodeServer:
         """
         Start the name node server.
         """
+
+        print("Starting gRPC server", flush=True)  # Debug print to indicate gRPC server startup
         self.server.start()
 
+        current_time = datetime.datetime.now().strftime("%H:%M")  # Format time as HH:MM
         self.logger.log(
             "SERVER_START",
-            "namenode",
+            f"namenode_{current_time}",
         )
 
+        print("gRPC server started and waiting for termination", flush=True)  # Debug print to indicate server is running
         self.server.wait_for_termination()
