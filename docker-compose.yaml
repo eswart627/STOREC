@@ -1,0 +1,12 @@
+services:
+  datanode:
+    image: venukumar975/datanode-app:v3
+    container_name: datanode-v3
+    ports:
+      - "50052:50052"  # Maps [Host Port]:[Container Port]
+    environment:
+      - NODE_ID=dn-friend-1
+      - NODE_PORT=50052      # <--- Added this for your Python config
+      - NAMENODE_HOST=192.168.137.48
+      - NAMENODE_PORT=50051
+    restart: always

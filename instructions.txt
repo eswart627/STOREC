@@ -4,11 +4,20 @@ UPPER_CASE -> enum values
 camelCase -> func names
 
 protobuf files compilation:
+In wsl :
+ activate the myenv environment -> chmod +x scripts/proto.sh -> ./scripts/proto.sh
+
 python -m grpc_tools.protoc ^ -I . ^ --python_out=. ^ --grpc_python_out=. ^ proto\common.proto ^ proto\namenode.proto ^ proto\datanode.proto
 
 for datanode: python -m datanode.app.main
 for namenode: python -m namenode.app.main
 
 
+TO pull the docker img to run the datanode:
+       docker pull venukumar975/datanode-app:v3
 
-
+To run docker-compose.yaml:
+  cd storec
+  docker compose up -d    # installs the image and runs it 
+  docker logs -f datanode-v3   # to see the logs in terminal instead of seeing in docekr desktop
+  docker compose down    # To stop or remove the container 

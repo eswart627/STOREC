@@ -1,5 +1,6 @@
 import time
 import datetime
+import pytz  # Add this import for timezone handling
 
 from proto import common_pb2
 from proto import namenode_pb2
@@ -23,7 +24,7 @@ class RegistrationManager:
             try:
                 response = self.rpc.stub.RegisterDataNode(request)
                 if response.status.success:
-                    current_time = datetime.datetime.now().strftime("%H:%M:%S")  # Format time as HH:MM:SS
+                    current_time = datetime.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%H:%M:%S")  # Format time as HH:MM:SS in IST
                     self.logger.log(
                         "REGISTER_SUCCESS",
                         f"{self.config.node_id} at {current_time}"

@@ -9,9 +9,13 @@ class Config:
         parser.read(path)
 
         # node init
-        self.node_id = parser.get("NODE", "node_id")
-        self.hostname = parser.get("NODE","hostname")
-        self.port = parser.getint("NODE", "port")
+        # Instead of this:
+        # self.node_id = parser.get("NODE", "node_id")
+
+        # Use this:
+        self.node_id = os.getenv("NODE_ID", parser.get("NODE", "node_id"))
+        self.hostname = os.getenv("NODE_HOSTNAME", parser.get("NODE", "hostname"))
+        self.port = int(os.getenv("NODE_PORT", parser.getint("NODE", "port")))
         self.capacity_bytes = parser.getint(
             "STORAGE",
             "capacity_bytes"
@@ -22,12 +26,8 @@ class Config:
             fallback=5
         )
         # name node
-        self.namenode_host = os.getenv(
-            "NAMENODE_HOST", parser.get("NAMENODE", "host")
-        )
-        self.namenode_port = os.getenv(
-            "NAMENODE_PORT", parser.get("NAMENODE", "port")
-        )
+        self.namenode_host = os.getenv("NAMENODE_HOST", parser.get("NAMENODE", "host"))
+        self.namenode_port = os.getenv("NAMENODE_PORT", parser.get("NAMENODE", "port"))
 
         #storage
         self.data_dir = parser.get(

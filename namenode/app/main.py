@@ -12,8 +12,11 @@ def main():
 
     config_path = base_dir / "config" / "namenode.config"
 
-    config = Config(str(config_path))
+    print(f"Config path: {config_path}", flush=True)  # Debug print to check config_path value
+    print(f"Base directory: {base_dir}", flush=True)  # Debug print to check base_dir value
 
+    config = Config(str(config_path))
+    print(base_dir, flush=True)  # Debug print to check base_dir value}")
     logger = Logger(base_dir)
 
     print("Initializing DataNode registry", flush=True)  # Debug print to indicate registry initialization

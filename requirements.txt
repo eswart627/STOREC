@@ -7,3 +7,4 @@ protobuf==6.33.6
 PyYAML==6.0.3
 setuptools==82.0.1
 typing_extensions==4.15.0
+pytz

@@ -12,6 +12,7 @@ from proto import common_pb2
 from namenode.app.heartbeat_manager import HeartbeatManager
 
 import random
+import pytz  # Add this import for timezone handling
 
 class NameNodeService(
     namenode_pb2_grpc.NameNodeServiceServicer
@@ -131,8 +132,9 @@ class NameNodeServer:
             NameNodeService(registry, logger), self.server
         )
 
-        address = f"{config.hostname}:{config.port}"
-
+        #address = f"{config.hostname}:{config.port}"
+        address = "0.0.0.0:50051"
+        print(f"DEBUG: NameNode binding to {address}", flush=True)
         self.server.add_insecure_port(address)
 
     def start(self):
@@ -143,7 +145,7 @@ class NameNodeServer:
         print("Starting gRPC server", flush=True)  # Debug print to indicate gRPC server startup
         self.server.start()
 
-        current_time = datetime.datetime.now().strftime("%H:%M")  # Format time as HH:MM
+        current_time = datetime.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%H:%M")  # Format time as HH:MM in IST
         self.logger.log(
             "SERVER_START",
             f"namenode_{current_time}",
