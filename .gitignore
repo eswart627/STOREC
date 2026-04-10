@@ -6,7 +6,7 @@ __pycache__/
 doubts.txt
 *_pb2.pyi
 logs/
-scripts
+
 myenv/
 .env
 mymy/
