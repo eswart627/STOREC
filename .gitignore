@@ -8,3 +8,4 @@ doubts.txt
 logs/
 scripts
 myenv/
+.env
