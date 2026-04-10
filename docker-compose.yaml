@@ -3,7 +3,7 @@ services:
     image: venukumar975/datanode-app:v3
     container_name: datanode-v3
     ports:
-      - "${NODE_PORT}:${NODE_PORT}"  # Maps [Host Port]:[Container Port]
+      - "50052:50052"  # Maps [Host Port]:[Container Port]
     env_file:
-      - .env
+      - ./datanode/.env
     restart: always
