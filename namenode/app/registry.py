@@ -85,3 +85,20 @@ class DataNodeRegistry:
                 dead_nodes.append(node_id)
                 self.nodes[node_id]["status"] = "INACTIVE"
         return dead_nodes
+
+    def save_state(self) -> None:
+        """
+        Save the current state of the registry to the database.
+        """
+        with self.lock:
+            conn = get_connection()
+            cur = conn.cursor()
+            for node_id, node_data in self.nodes.items():
+                cur.execute("""
+                    UPDATE dn_table 
+                    SET dn_status = %s, 
+                        dn_last_heartbeat = %s 
+                    WHERE dn_id = %s
+                """, (node_data["status"], node_data["last_heartbeat"], node_id))
+            conn.commit()
+            conn.close()
