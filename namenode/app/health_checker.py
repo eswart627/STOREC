@@ -46,5 +46,5 @@ class HealthChecker:
                     cur.execute("UPDATE dn_table SET dn_status = 'INACTIVE' WHERE dn_id = %s", (i,))
                     conn.commit()
                     conn.close()
-                    self.logger.info(f"Node {i} marked as inactive")
+                    self.logger.log("NODE_INACTIVE", f"Node {i} marked as inactive")
             time.sleep(self.check_interval)

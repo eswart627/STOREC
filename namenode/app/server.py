@@ -140,8 +140,8 @@ class NameNodeServer:
             NameNodeService(registry, logger), self.server
         )
 
-        #address = f"{config.hostname}:{config.port}"
-        address = "localhost:50051"
+        address = f"{config.hostname}:{config.port}"
+        
         print(f"DEBUG: NameNode binding to {address}", flush=True)
         self.server.add_insecure_port(address)
         self.health_checker = HealthChecker(
