@@ -2,6 +2,8 @@ import grpc
 import os
 import time
 import datetime
+import random
+import pytz  # Add this import for timezone handling
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -9,21 +11,25 @@ from proto import namenode_pb2
 from proto import namenode_pb2_grpc
 from proto import common_pb2
 
-from namenode.app.heartbeat_manager import HeartbeatManager
-
-import random
-import pytz  # Add this import for timezone handling
+from .heartbeat_manager import HeartbeatManager
+from .health_checker import HealthChecker
 
 class NameNodeService(
     namenode_pb2_grpc.NameNodeServiceServicer
 ):
-
+    """
+    Name node service.
+    
+    Attributes:
+        registry: Data node registry.
+        logger: Logger object.
+        heartbeat_manager: Heartbeat manager.
+    """
     def __init__(self, registry, logger):
         self.registry = registry
         self.logger = logger
-        self.heartbeat_manager = HeartbeatManager(self.logger)
-
-    def RegisterDataNode(self, request, context):
+        self.heartbeat_manager = HeartbeatManager(self.logger,self.registry)
+    def RegisterDataNode(self, request:namenode_pb2.RegisterRequest, context)->namenode_pb2.RegisterResponse:
         """
         Register a data node with the name node.
         Args:
@@ -55,7 +61,7 @@ class NameNodeService(
             )
         )
 
-    def SendHeartbeat(self, request, context):
+    def SendHeartbeat(self, request:namenode_pb2.HeartbeatRequest, context)->namenode_pb2.HeartbeatResponse:
         """
         Send a heartbeat to the name node.
         Args:
@@ -68,9 +74,9 @@ class NameNodeService(
         
         return self.heartbeat_manager.handle_heartbeat(request, context)
 
-    def AllocateStripe(self, request, context):
+    def AllocateStripe(self, request:namenode_pb2.AllocateStripeRequest, context)->namenode_pb2.AllocateStripeResponse:
         """
-        Allocate a stripe to a file.
+        Under Maintainence
         Args:
             request: AllocateStripeRequest(file_name:str,policy(data_shards:int,parity_shards:int,stripe_size:int))
             context: grpc.ServicerContext
@@ -88,8 +94,9 @@ class NameNodeService(
             )
             )
 
-    def ReportShard(self, request, context):
+    def ReportShard(self, request:namenode_pb2.ReportShardRequest, context)->namenode_pb2.ReportShardResponse:
         """
+        Under maintenance
         Args:
             request: ReportShardRequest()
             context: grpc.ServicerContext
@@ -127,23 +134,32 @@ class NameNodeServer:
                 max_workers=config.worker_threads
             )
         )
+        
 
         namenode_pb2_grpc.add_NameNodeServiceServicer_to_server(
             NameNodeService(registry, logger), self.server
         )
 
         #address = f"{config.hostname}:{config.port}"
-        address = "0.0.0.0:50051"
+        address = "localhost:50051"
         print(f"DEBUG: NameNode binding to {address}", flush=True)
         self.server.add_insecure_port(address)
+        self.health_checker = HealthChecker(
+            self.registry, 
+            config.health_check_interval,
+            self.logger
+        )
 
-    def start(self):
+    def start(self)->None:
         """
         Start the name node server.
         """
 
         print("Starting gRPC server", flush=True)  # Debug print to indicate gRPC server startup
         self.server.start()
+
+        # Start health checker
+        self.health_checker.start()
 
         current_time = datetime.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%H:%M")  # Format time as HH:MM in IST
         self.logger.log(

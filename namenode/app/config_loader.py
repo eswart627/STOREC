@@ -11,7 +11,7 @@ class Config:
         port: Port number of the node.
         worker_threads: Number of worker threads for the server.
     """
-    def __init__(self, path):
+    def __init__(self, path:str):
         """
         Initialize the configuration loader.
         
@@ -31,3 +31,8 @@ class Config:
         self.port = parser.getint("NODE","port")
 
         self.worker_threads = parser.getint("SERVER","worker_threads")
+
+        try:
+            self.health_check_interval = parser.getint("SERVER", "health_check_interval")
+        except configparser.NoOptionError:
+            self.health_check_interval = 10  # Default value

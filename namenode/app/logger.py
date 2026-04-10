@@ -10,7 +10,7 @@ class Logger:
         log_dir: Directory to store log files.
         file: Path to the log file.
     """
-    def __init__(self, base_dir):
+    def __init__(self, base_dir:str):
         print("Base directory for Logger:", base_dir)
         # Debug print to verify base directory for Logger
         self.log_dir = os.path.join(
@@ -31,11 +31,7 @@ class Logger:
             f.truncate(0)  # Truncate the file to ensure it starts empty
         print("Cleared log file at the start of execution.", flush=True)  # Debug print to confirm clearing
 
-    def log(
-        self,
-        event,
-        details,
-    ):
+    def log(self,event:str,details:str)->None:
         """
         Log an event.
         
