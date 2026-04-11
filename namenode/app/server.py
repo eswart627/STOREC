@@ -1,3 +1,4 @@
+
 import grpc
 import os
 import time
@@ -41,23 +42,22 @@ class NameNodeService(
             RegisterResponse(Status(success:bool,message:str))
         """
         node = request.node
-        incoming_id = request.node_id
-
-        # The registry is restored from DB during NameNode startup, so an
-        # existing DataNode can reconnect with its persisted ID after restart.
-        if incoming_id and self.registry.has_node(incoming_id):
-            node_id = incoming_id
-            message = "re-registered"
-            self.registry.reactivate(node_id)
-        else:
-            node_id = str(uuid.uuid4())
-            message = "new registration"
-            self.registry.register(
-                node_id=node_id,
-                hostname=node.hostname,
-                port=node.port,
-                capacity=request.capacity_bytes,
+        address=f"{node.hostname}:{node.port}"
+        if self.registry.lookup.get(address):
+            return namenode_pb2.RegisterResponse(
+                node_id=self.registry.lookup[address],
+                status=common_pb2.Status(
+                    success=True,
+                    message="Already registered",
+                )
             )
+        node_id=str(uuid.uuid4())
+        self.registry.register(
+            node_id=node_id,
+            hostname=node.hostname,
+            port=node.port,
+            capacity=request.capacity_bytes,
+        )
 
         self.logger.log("REGISTER", f"{node_id} ({message})")
 
@@ -159,7 +159,7 @@ class NameNodeServer:
         """
         Start the name node server.
         """
-
+        self.registry.load_state()
         print("Starting gRPC server", flush=True)  # Debug print to indicate gRPC server startup
         self.server.start()
 
