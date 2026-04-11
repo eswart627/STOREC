@@ -156,7 +156,7 @@ class NameNodeServer:
         """
         Start the name node server.
         """
-
+        self.registry.load_state()
         print("Starting gRPC server", flush=True)  # Debug print to indicate gRPC server startup
         self.server.start()
 

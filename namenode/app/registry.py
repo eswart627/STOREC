@@ -28,25 +28,34 @@ class DataNodeRegistry:
             port: Port number of the node.
             capacity: Total storage capacity of the node.
         """
-        with self.lock:
-
-            self.nodes[node_id] = {
-
-                "hostname": hostname,
-                "port": port,
-                "capacity": capacity,
-                "last_heartbeat": time.time(),
-            }
-
-            conn = get_connection()
-            cur = conn.cursor()
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        if node_id in self.nodes:
+            self.nodes[node_id]["status"] ="ACTIVE"
+            self.nodes[node_id]["last_heartbeat"] = time.time()
             cur.execute("""
-                INSERT INTO dn_table (dn_id, dn_address, dn_port, dn_status, dn_capacity, dn_used, dn_available)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (node_id, hostname, port, "ACTIVE", capacity, 0, capacity))
-            conn.commit()
-            conn.close()
-            
+                UPDATE dn_table 
+                SET dn_status = %s, 
+                    dn_last_heartbeat = %s 
+                WHERE dn_id = %s
+            """, ("ACTIVE", time.time(), node_id))
+        else:
+            with self.lock:
+                self.nodes[node_id] = {
+                    "hostname": hostname,
+                    "port": port,
+                    "capacity": capacity,
+                    "last_heartbeat": time.time(),
+                }
+
+                cur.execute("""
+                    INSERT INTO dn_table (dn_id, dn_address, dn_port, dn_status, dn_capacity, dn_used, dn_available)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (node_id, hostname, port, "ACTIVE", capacity, 0, capacity))
+        conn.commit()
+        conn.close()
+    
     def heartbeat(self, node_id:str)->None:
         """
         Update the last heartbeat time for a data node.
@@ -90,6 +99,7 @@ class DataNodeRegistry:
         """
         Save the current state of the registry to the database.
         """
+
         with self.lock:
             conn = get_connection()
             cur = conn.cursor()
@@ -99,6 +109,28 @@ class DataNodeRegistry:
                     SET dn_status = %s, 
                         dn_last_heartbeat = %s 
                     WHERE dn_id = %s
-                """, (node_data["status"], node_data["last_heartbeat"], node_id))
+                """, ("INACTIVE", node_data["last_heartbeat"], node_id))
             conn.commit()
+            conn.close()
+
+    def load_state(self):
+        """
+        Load the state of the registry from the database.
+        """
+        with self.lock:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT dn_id, dn_address, dn_port, dn_status, dn_capacity, dn_used, dn_available, dn_last_heartbeat
+                FROM dn_table
+            """)
+            rows = cur.fetchall()
+            for row in rows:
+                self.nodes[row[0]] = {
+                    "hostname": row[1],
+                    "port": row[2],
+                    "capacity": row[3],
+                    "last_heartbeat": row[7],
+                    "status": row[4],
+                }
             conn.close()
