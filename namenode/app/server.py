@@ -4,6 +4,7 @@ import time
 import datetime
 import random
 import pytz  # Add this import for timezone handling
+import uuid
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -40,9 +41,9 @@ class NameNodeService(
             RegisterResponse(Status(success:bool,message:str))
         """
         node = request.node
-
+        node_id=str(uuid.uuid4())
         self.registry.register(
-            node_id=node.node_id,
+            node_id=node_id,
             hostname=node.hostname,
             port=node.port,
             capacity=request.capacity_bytes,
@@ -51,10 +52,11 @@ class NameNodeService(
         current_time = datetime.datetime.now().strftime("%H:%M:%S")  # Format time as HH:MM:SS
         self.logger.log(
             "REGISTER",
-            f"{node.node_id} at {current_time}",
+            f"{node_id} at {current_time}",
         )
 
         return namenode_pb2.RegisterResponse(
+            node_id=node_id,
             status=common_pb2.Status(
                 success=True,
                 message="registered",

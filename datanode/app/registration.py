@@ -11,8 +11,7 @@ class RegistrationManager:
         self.config = config
         self.logger = logger
     def register(self):
-        node = common_pb2.NodeId(
-            node_id = self.config.node_id,
+        node = common_pb2.Node(
             hostname = self.config.hostname,
             port = self.config.port
         )
