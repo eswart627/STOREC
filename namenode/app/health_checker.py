@@ -47,4 +47,5 @@ class HealthChecker:
                     conn.commit()
                     conn.close()
                     self.logger.log("NODE_INACTIVE", f"Node {i} marked as inactive")
+                    self.logger.log("CONNECTION_CLOSED", f"Connection to DataNode {i} closed")
             time.sleep(self.check_interval)

@@ -11,7 +11,7 @@ class HeartbeatManager:
         self.rpc = rpc_client
         self.config = config
         self.logger = logger
-        self.storage = storage
+        self.storage = storage 
         self.running = False
         
         # Production tuning
@@ -28,7 +28,7 @@ class HeartbeatManager:
     def _run(self):
         failed_attempts = 0
         first_failure_time = None
-        
+        print(self.config.node_id, flush=True)  # Debug print to check node_id value
         while self.running:
             try:
                 heartbeat_data = common_pb2.Heartbeat(

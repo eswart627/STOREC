@@ -12,12 +12,23 @@ python -m grpc_tools.protoc ^ -I . ^ --python_out=. ^ --grpc_python_out=. ^ prot
 for datanode: python -m datanode.app.main
 for namenode: python -m namenode.app.main
 
+To run proto files:
+  In Git Bash:
+    cd storec
+     ./scripts/proto.sh
 
-TO pull the docker img to run the datanode:
-       docker pull venukumar975/datanode-app:v3
 
-To run docker-compose.yaml:
+TO run namenode :
+  In Git Bash:
+    cd storec
+    ./scripts/init.sh
+
+To run docker-compose.yaml( to run datanode in docker container ):
+
   cd storec
-  docker compose up -d    # installs the image and runs it 
+
+  docker compose up --build -d
+
   docker logs -f datanode-v3   # to see the logs in terminal instead of seeing in docekr desktop
   docker compose down    # To stop or remove the container 
+  docker compose restart datanode  # To restart the DataNode container

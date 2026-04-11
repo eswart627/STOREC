@@ -13,7 +13,7 @@ class Config:
         # self.node_id = parser.get("NODE", "node_id")
 
         # Use this:
-        self.node_id = os.getenv("NODE_ID", parser.get("NODE", "node_id"))
+        self.node_id = os.getenv("NODE_ID", parser.get("NODE", "node_id",fallback=None))
         self.hostname = os.getenv("NODE_HOSTNAME", parser.get("NODE", "hostname"))
         self.port = int(os.getenv("NODE_PORT", parser.getint("NODE", "port")))
         self.capacity_bytes = parser.getint(
@@ -42,7 +42,7 @@ class Config:
         self.validate()
 
     def validate(self):
-        if not self.node_id:
-            raise ValueError("node_id missing")
         if not self.namenode_host:
             raise ValueError("namenode host missing")
+        if not self.namenode_port:
+            raise ValueError("namenode port missing")

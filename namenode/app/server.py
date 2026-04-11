@@ -4,6 +4,7 @@ import time
 import datetime
 import random
 import pytz  # Add this import for timezone handling
+import uuid
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -40,25 +41,29 @@ class NameNodeService(
             RegisterResponse(Status(success:bool,message:str))
         """
         node = request.node
+        incoming_id = request.node_id
 
-        self.registry.register(
-            node_id=node.node_id,
-            hostname=node.hostname,
-            port=node.port,
-            capacity=request.capacity_bytes,
-        )
+        # The registry is restored from DB during NameNode startup, so an
+        # existing DataNode can reconnect with its persisted ID after restart.
+        if incoming_id and self.registry.has_node(incoming_id):
+            node_id = incoming_id
+            message = "re-registered"
+            self.registry.reactivate(node_id)
+        else:
+            node_id = str(uuid.uuid4())
+            message = "new registration"
+            self.registry.register(
+                node_id=node_id,
+                hostname=node.hostname,
+                port=node.port,
+                capacity=request.capacity_bytes,
+            )
 
-        current_time = datetime.datetime.now().strftime("%H:%M:%S")  # Format time as HH:MM:SS
-        self.logger.log(
-            "REGISTER",
-            f"{node.node_id} at {current_time}",
-        )
+        self.logger.log("REGISTER", f"{node_id} ({message})")
 
         return namenode_pb2.RegisterResponse(
-            status=common_pb2.Status(
-                success=True,
-                message="registered",
-            )
+        node_id=node_id,
+        status=common_pb2.Status(success=True, message=message)
         )
 
     def SendHeartbeat(self, request:namenode_pb2.HeartbeatRequest, context)->namenode_pb2.HeartbeatResponse:

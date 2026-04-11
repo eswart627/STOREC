@@ -2,8 +2,7 @@ syntax = "proto3";
 
 package proto;
 
-message NodeId {
-    string node_id = 1;
+message Node {
     string hostname = 2;
     int32 port = 3;
 }
@@ -39,7 +38,7 @@ message ShardMetadata {
 // Placement information
 message ShardPlacement {
     ShardMetadata shard = 1;
-    NodeId node = 2;
+    Node node = 2;
 }
 
 // Heartbeat information

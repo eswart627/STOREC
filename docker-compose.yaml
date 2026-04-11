@@ -1,9 +1,16 @@
 services:
   datanode:
-    image: venukumar975/datanode-app:v3
+    build:
+      context: .
+      dockerfile: datanode/Dockerfile
     container_name: datanode-v3
     ports:
       - "50052:50052"  # Maps [Host Port]:[Container Port]
     env_file:
       - ./datanode/.env
+    volumes:
+      # This maps a local folder named 'dn_storage' to the container's '/data'
+      - ./dn_storage:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Allows container to access host services
     restart: always

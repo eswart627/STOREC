@@ -42,6 +42,7 @@ def main():
         logger=logger
     )
     registration.register()
+    print(f"DEBUG: Registration complete. Assigned ID: {config.node_id}", flush=True)
 
     print("Starting DataNode server", flush=True)  # Debug print before server starts
     server = DataNodeServer(
