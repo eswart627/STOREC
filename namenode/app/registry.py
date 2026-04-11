@@ -16,6 +16,7 @@ class DataNodeRegistry:
     """
     def __init__(self):
         self.nodes = {}
+        self.lookup={}
         self.lock = threading.Lock()
 
     def register(self, node_id:str, hostname:str, port:int, capacity:int)->None:
@@ -48,11 +49,12 @@ class DataNodeRegistry:
                     "capacity": capacity,
                     "last_heartbeat": time.time(),
                 }
+                self.lookup[f"{hostname}:{port}"] = node_id
 
                 cur.execute("""
-                    INSERT INTO dn_table (dn_id, dn_address, dn_port, dn_status, dn_capacity, dn_used, dn_available)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (node_id, hostname, port, "ACTIVE", capacity, 0, capacity))
+                    INSERT INTO dn_table (dn_id, dn_address, dn_port, dn_status, dn_capacity, dn_used, dn_available, dn_last_heartbeat)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """, (node_id, hostname, port, "ACTIVE", capacity, 0, capacity, self.nodes[node_id]["last_heartbeat"]))
         conn.commit()
         conn.close()
     
@@ -90,7 +92,7 @@ class DataNodeRegistry:
         dead_nodes:List[int] = []
         
         for node_id, node_data in self.nodes.items():
-            if current_time - node_data["last_heartbeat"] > 20:  # 3 missed heartbeats
+            if current_time - node_data["last_heartbeat"] > 20 and node_data["status"] == "ACTIVE":  # 3 missed heartbeats
                 dead_nodes.append(node_id)
                 self.nodes[node_id]["status"] = "INACTIVE"
         return dead_nodes
@@ -133,4 +135,5 @@ class DataNodeRegistry:
                     "last_heartbeat": row[7],
                     "status": row[4],
                 }
+                self.lookup[f"{row[1]}:{row[2]}"] = row[0]
             conn.close()

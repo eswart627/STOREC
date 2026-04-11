@@ -1,3 +1,4 @@
+
 import grpc
 import os
 import time
@@ -41,6 +42,15 @@ class NameNodeService(
             RegisterResponse(Status(success:bool,message:str))
         """
         node = request.node
+        address=f"{node.hostname}:{node.port}"
+        if self.registry.lookup.get(address):
+            return namenode_pb2.RegisterResponse(
+                node_id=self.registry.lookup[address],
+                status=common_pb2.Status(
+                    success=True,
+                    message="Already registered",
+                )
+            )
         node_id=str(uuid.uuid4())
         self.registry.register(
             node_id=node_id,
