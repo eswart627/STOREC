@@ -105,7 +105,8 @@ class DataNodeRegistry:
 
             self.nodes[node_id]["last_heartbeat"] = now
             self.nodes[node_id]["status"] = "ACTIVE"
-
+            
+            # Can be remove this DB update if we want to reduce DB load and only persist on shutdown.
             conn = get_connection()
             cur = conn.cursor()
             cur.execute(

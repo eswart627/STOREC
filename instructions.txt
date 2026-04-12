@@ -19,11 +19,12 @@ To run proto files:
 
 
 TO run namenode :
-  In Git Bash: ( Not this )
-    cd storec
-    ./scripts/init.sh ( this will re create the DB) so dont use if u want the DB to persist
+  In Git Bash: ( Works too persistent DB )
+    ->cd storec
+    -> chmod +x init.sh
+    ->scripts/init.sh ( this will re create the DB if u r doing for first time and then run the namenode server )
     
-    To use persistent B: ( use this )
+    To use persistent DB and want to see the DB after shutting off namenode: ( use this )
     -> cd namendoe
     -> docker-compose up -d  ( this will run DB in docker)
     -> cd..
@@ -42,6 +43,6 @@ To run docker-compose.yaml( to run datanode in docker container ):
 To check DB:
   -> cd storec
   -> python -m db_manager.check_tables
-  
+
 To check the lookups ( not when namenode is in running state )
   -> python -m namenode.app.show_lookups.py

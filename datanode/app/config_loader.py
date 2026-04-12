@@ -10,7 +10,9 @@ class Config:
 
         def env_or_default(key: str, default):
             value = os.getenv(key)
-            return value if value not in (None, "") else default
+            if value not in (None, ""):
+                 return value.strip()
+            return str(default).strip() if default else default
 
         # node init
         self.node_id = env_or_default("NODE_ID", parser.get("NODE", "node_id", fallback=None))

@@ -51,6 +51,7 @@ class NameNodeService(
                 port=node.port,
                 capacity=request.capacity_bytes,
             )
+            self.logger.log("Datanode with ID ", f"{existing_node_id} at {address} (re-registered)")
             return namenode_pb2.RegisterResponse(
                 node_id=existing_node_id,
                 status=common_pb2.Status(
@@ -182,7 +183,21 @@ class NameNodeServer:
         print("gRPC server started and waiting for termination", flush=True)  # Debug print to indicate server is running
         self.server.wait_for_termination()
 
-    def stop(self) -> None:
+    def stop(self, grace_period: int = 10) -> None:
+        """
+        Stop the name node server with a custom grace period.
+        """
+        print(f"Stopping NameNode server (grace period: {grace_period}s)...", flush=True)
+        
+        # 1. Stop background processes first
         self.health_checker.stop()
+        
+        # 2. Persist the registry state
         self.registry.save_state()
-        self.server.stop(grace=1)
+        
+        # 3. Stop the gRPC server with the increased grace period
+        # The server will stop accepting new requests and wait up to 'grace' seconds
+        # for existing RPCs to complete.
+        self.server.stop(grace=grace_period)
+        
+        self.logger.log("SERVER_STOP", f"Graceful shutdown completed ({grace_period}s)")
