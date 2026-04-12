@@ -8,26 +8,21 @@ from .logger import Logger
 from .registry import DataNodeRegistry
 from .server import NameNodeServer
 
+server = None
+
 def signal_handler(signum: int, frame: FrameType | None) -> None:
     """Handle shutdown signals"""
     print("\nReceived shutdown signal. Cleaning up...", flush=True)
-    
-    print("Saving registry state...", flush=True)
+
+    print("Stopping NameNode services...", flush=True)
     if 'server' in globals():
-        server.registry.save_state()
-    
-    print("Stopping health checker...", flush=True)
-    if 'server' in globals():
-        server.health_checker.running = False
-    
-    print("Shutting down gRPC server...", flush=True)
-    if 'server' in globals():
-        server.server.stop(grace=1)
-    
+        server.stop()
+
     print("NameNode stopped gracefully.", flush=True)
     sys.exit(0)
 
 def main() -> None:
+    global server
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -45,7 +40,7 @@ def main() -> None:
 
     print("Initializing DataNode registry", flush=True)  # Debug print to indicate registry initialization
     registry = DataNodeRegistry()
-    restored_count = registry.load_from_db()
+    restored_count = registry.load_state()
     logger.log("REGISTRY_RESTORED", f"Loaded {restored_count} DataNode record(s) from DB")
 
     print("Initializing NameNode server", flush=True)  # Debug print to indicate server initialization
@@ -58,12 +53,6 @@ def main() -> None:
     print("Starting NameNode server", flush=True)  # Debug print to indicate server startup
 
     server.start()
-
-    print("NameNode server started", flush=True)
-    try:
-        server.server.wait_for_termination()
-    except KeyboardInterrupt:
-        signal_handler(signal.SIGINT, None)
 
 if __name__ == "__main__":
     main()

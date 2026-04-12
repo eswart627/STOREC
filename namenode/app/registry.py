@@ -1,11 +1,29 @@
 import threading
 import time
-from typing import Any
+from datetime import datetime
+from typing import Any , List
 
 from ..db_manager import get_connection
 
 
 NodeRecord = dict[str, Any]
+
+
+def _heartbeat_to_epoch(value: Any) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, datetime):
+        return int(value.timestamp())
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return int(datetime.fromisoformat(value).timestamp())
+    return int(value)
 
 
 class DataNodeRegistry:
@@ -30,63 +48,52 @@ class DataNodeRegistry:
             port: Port number of the node.
             capacity: Total storage capacity of the node.
         """
-        conn = get_connection()
-        cur = conn.cursor()
-        
-        if node_id in self.nodes:
-            self.nodes[node_id]["status"] ="ACTIVE"
-            self.nodes[node_id]["last_heartbeat"] = time.time()
-            cur.execute("""
-                UPDATE dn_table 
-                SET dn_status = %s, 
-                    dn_last_heartbeat = %s 
-                WHERE dn_id = %s
-            """, ("ACTIVE", time.time(), node_id))
-        else:
-            with self.lock:
-                self.nodes[node_id] = {
-                    "hostname": hostname,
-                    "port": port,
-                    "capacity": capacity,
-                    "last_heartbeat": time.time(),
-                }
-                self.lookup[f"{hostname}:{port}"] = node_id
-
-                cur.execute("""
-                    INSERT INTO dn_table (dn_id, dn_address, dn_port, dn_status, dn_capacity, dn_used, dn_available, dn_last_heartbeat)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """, (node_id, hostname, port, "ACTIVE", capacity, 0, capacity, self.nodes[node_id]["last_heartbeat"]))
-        conn.commit()
-        conn.close()
-    
-    def heartbeat(self, node_id:str)->None:
-        """
-        Update the last heartbeat time for a data node.
-        
-        Args:
-            node_id: Unique identifier for the node.
-        """
         now = int(time.time())
         with self.lock:
-            if node_id not in self.nodes:
-                return
+            existing_node = self.nodes.get(node_id, {})
+            old_address = None
+            if existing_node.get("hostname") and existing_node.get("port"):
+                old_address = f'{existing_node["hostname"]}:{existing_node["port"]}'
 
-            self.nodes[node_id]["status"] = "ACTIVE"
-            self.nodes[node_id]["last_heartbeat"] = now
+            used_bytes = existing_node.get("used", 0)
+            available_bytes = max(capacity - used_bytes, 0)
+            self.nodes[node_id] = {
+                "hostname": hostname,
+                "port": port,
+                "capacity": capacity,
+                "used": used_bytes,
+                "available": available_bytes,
+                "last_heartbeat": now,
+                "status": "ACTIVE",
+            }
+
+            if old_address and old_address != f"{hostname}:{port}":
+                self.lookup.pop(old_address, None)
+            self.lookup[f"{hostname}:{port}"] = node_id
 
             conn = get_connection()
             cur = conn.cursor()
             cur.execute(
                 """
-                UPDATE dn_table
-                SET dn_status = %s, dn_last_heartbeat = %s
-                WHERE dn_id = %s
+                INSERT INTO dn_table (
+                    dn_id, dn_address, dn_port, dn_status,
+                    dn_capacity, dn_used, dn_available, dn_last_heartbeat
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, FROM_UNIXTIME(%s))
+                ON DUPLICATE KEY UPDATE
+                    dn_address = VALUES(dn_address),
+                    dn_port = VALUES(dn_port),
+                    dn_status = VALUES(dn_status),
+                    dn_capacity = VALUES(dn_capacity),
+                    dn_used = VALUES(dn_used),
+                    dn_available = VALUES(dn_available),
+                    dn_last_heartbeat = VALUES(dn_last_heartbeat)
                 """,
-                ("ACTIVE", now, node_id),
+                (node_id, hostname, port, "ACTIVE", capacity, used_bytes, available_bytes, now),
             )
             conn.commit()
             conn.close()
-
+    
     def heartbeat(self, node_id: str) -> str | None:
         """
         Update the heartbeat timestamp for an already registered DataNode.
@@ -104,7 +111,7 @@ class DataNodeRegistry:
             cur.execute(
                 """
                 UPDATE dn_table
-                SET dn_status = %s, dn_last_heartbeat = %s
+                SET dn_status = %s, dn_last_heartbeat = FROM_UNIXTIME(%s)
                 WHERE dn_id = %s
                 """,
                 ("ACTIVE", now, node_id),
@@ -126,10 +133,11 @@ class DataNodeRegistry:
         current_time = time.time()
         dead_nodes:List[int] = []
         
-        for node_id, node_data in self.nodes.items():
-            if current_time - node_data["last_heartbeat"] > 20 and node_data["status"] == "ACTIVE":  # 3 missed heartbeats
-                dead_nodes.append(node_id)
-                self.nodes[node_id]["status"] = "INACTIVE"
+        with self.lock:
+            for node_id, node_data in self.nodes.items():
+                if current_time - node_data["last_heartbeat"] > 20 and node_data["status"] == "ACTIVE":
+                    dead_nodes.append(node_id)
+                    self.nodes[node_id]["status"] = "INACTIVE"
         return dead_nodes
 
     def save_state(self) -> None:
@@ -141,20 +149,42 @@ class DataNodeRegistry:
             conn = get_connection()
             cur = conn.cursor()
             for node_id, node_data in self.nodes.items():
+                node_data["status"] = "INACTIVE"
                 cur.execute(
                     """
-                    UPDATE dn_table
-                    SET dn_status = %s, dn_last_heartbeat = %s
-                    WHERE dn_id = %s
-                """, ("INACTIVE", node_data["last_heartbeat"], node_id))
+                    INSERT INTO dn_table (
+                        dn_id, dn_address, dn_port, dn_status,
+                        dn_capacity, dn_used, dn_available, dn_last_heartbeat
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, FROM_UNIXTIME(%s))
+                    ON DUPLICATE KEY UPDATE
+                        dn_address = VALUES(dn_address),
+                        dn_port = VALUES(dn_port),
+                        dn_status = VALUES(dn_status),
+                        dn_capacity = VALUES(dn_capacity),
+                        dn_used = VALUES(dn_used),
+                        dn_available = VALUES(dn_available),
+                        dn_last_heartbeat = VALUES(dn_last_heartbeat)
+                """, (
+                    node_id,
+                    node_data["hostname"],
+                    node_data["port"],
+                    "INACTIVE",
+                    node_data["capacity"],
+                    node_data.get("used", 0),
+                    node_data.get("available", node_data["capacity"]),
+                    int(node_data["last_heartbeat"]),
+                ))
             conn.commit()
             conn.close()
 
-    def load_state(self):
+    def load_state(self) -> int:
         """
         Load the state of the registry from the database.
         """
         with self.lock:
+            self.nodes.clear()
+            self.lookup.clear()
             conn = get_connection()
             cur = conn.cursor()
             cur.execute("""
@@ -166,9 +196,15 @@ class DataNodeRegistry:
                 self.nodes[row[0]] = {
                     "hostname": row[1],
                     "port": row[2],
-                    "capacity": row[3],
-                    "last_heartbeat": row[7],
-                    "status": row[4],
+                    "capacity": row[4],
+                    "used": row[5],
+                    "available": row[6],
+                    "last_heartbeat": _heartbeat_to_epoch(row[7]),
+                    "status": "INACTIVE",
                 }
                 self.lookup[f"{row[1]}:{row[2]}"] = row[0]
+            if rows:
+                cur.execute("UPDATE dn_table SET dn_status = 'INACTIVE'")
+                conn.commit()
             conn.close()
+            return len(rows)

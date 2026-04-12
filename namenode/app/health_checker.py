@@ -32,6 +32,9 @@ class HealthChecker:
         """
         self.running = True
         threading.Thread(target=self._check_loop, daemon=True).start()
+
+    def stop(self) -> None:
+        self.running = False
     
     def _check_loop(self)->None:
         """

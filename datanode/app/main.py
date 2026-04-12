@@ -1,5 +1,6 @@
 import os
 import time
+from dotenv import load_dotenv
 #from STOREC.datanode.app import heartbeat
 from datanode.app.config_loader import Config
 from datanode.app.logger import Logger
@@ -12,6 +13,7 @@ from datanode.app.heartbeat import HeartbeatManager
 def main():
     # This gets the 'storec' directory where you run the command from
     base_dir = os.getcwd()
+    load_dotenv(os.path.join(base_dir, "datanode", ".env"))
 
     # 1. Load Config
     config_path = os.path.join(base_dir, "datanode", "config", "datanode.config")

@@ -9,3 +9,4 @@ CREATE TABLE IF NOT EXISTS dn_table (
     dn_used BIGINT NOT NULL,
     dn_available BIGINT NOT NULL,
 );
+

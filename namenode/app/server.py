@@ -44,8 +44,15 @@ class NameNodeService(
         node = request.node
         address=f"{node.hostname}:{node.port}"
         if self.registry.lookup.get(address):
+            existing_node_id = self.registry.lookup[address]
+            self.registry.register(
+                node_id=existing_node_id,
+                hostname=node.hostname,
+                port=node.port,
+                capacity=request.capacity_bytes,
+            )
             return namenode_pb2.RegisterResponse(
-                node_id=self.registry.lookup[address],
+                node_id=existing_node_id,
                 status=common_pb2.Status(
                     success=True,
                     message="Already registered",
@@ -58,6 +65,7 @@ class NameNodeService(
             port=node.port,
             capacity=request.capacity_bytes,
         )
+        message = "Registered successfully"
 
         self.logger.log("REGISTER", f"{node_id} ({message})")
 
@@ -159,7 +167,6 @@ class NameNodeServer:
         """
         Start the name node server.
         """
-        self.registry.load_state()
         print("Starting gRPC server", flush=True)  # Debug print to indicate gRPC server startup
         self.server.start()
 
@@ -174,3 +181,8 @@ class NameNodeServer:
 
         print("gRPC server started and waiting for termination", flush=True)  # Debug print to indicate server is running
         self.server.wait_for_termination()
+
+    def stop(self) -> None:
+        self.health_checker.stop()
+        self.registry.save_state()
+        self.server.stop(grace=1)
