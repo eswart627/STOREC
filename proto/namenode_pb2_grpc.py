@@ -39,20 +39,35 @@ class NameNodeServiceStub(object):
                 request_serializer=proto_dot_namenode__pb2.RegisterRequest.SerializeToString,
                 response_deserializer=proto_dot_namenode__pb2.RegisterResponse.FromString,
                 _registered_method=True)
-        self.SendHeartbeat = channel.unary_unary(
-                '/proto.NameNodeService/SendHeartbeat',
+        self.AllocateBlocks = channel.unary_unary(
+                '/proto.NameNodeService/AllocateBlocks',
+                request_serializer=proto_dot_namenode__pb2.AllocateBlocksRequest.SerializeToString,
+                response_deserializer=proto_dot_namenode__pb2.AllocateBlocksResponse.FromString,
+                _registered_method=True)
+        self.CommitFile = channel.unary_unary(
+                '/proto.NameNodeService/CommitFile',
+                request_serializer=proto_dot_namenode__pb2.CommitFileRequest.SerializeToString,
+                response_deserializer=proto_dot_namenode__pb2.CommitFileResponse.FromString,
+                _registered_method=True)
+        self.GetFileMetadata = channel.unary_unary(
+                '/proto.NameNodeService/GetFileMetadata',
+                request_serializer=proto_dot_namenode__pb2.GetFileMetadataRequest.SerializeToString,
+                response_deserializer=proto_dot_namenode__pb2.GetFileMetadataResponse.FromString,
+                _registered_method=True)
+        self.DeleteFile = channel.unary_unary(
+                '/proto.NameNodeService/DeleteFile',
+                request_serializer=proto_dot_namenode__pb2.DeleteFileRequest.SerializeToString,
+                response_deserializer=proto_dot_namenode__pb2.DeleteFileResponse.FromString,
+                _registered_method=True)
+        self.Heartbeat = channel.unary_unary(
+                '/proto.NameNodeService/Heartbeat',
                 request_serializer=proto_dot_namenode__pb2.HeartbeatRequest.SerializeToString,
                 response_deserializer=proto_dot_namenode__pb2.HeartbeatResponse.FromString,
                 _registered_method=True)
-        self.AllocateStripe = channel.unary_unary(
-                '/proto.NameNodeService/AllocateStripe',
-                request_serializer=proto_dot_namenode__pb2.AllocateStripeRequest.SerializeToString,
-                response_deserializer=proto_dot_namenode__pb2.AllocateStripeResponse.FromString,
-                _registered_method=True)
-        self.ReportShard = channel.unary_unary(
-                '/proto.NameNodeService/ReportShard',
-                request_serializer=proto_dot_namenode__pb2.ReportShardRequest.SerializeToString,
-                response_deserializer=proto_dot_namenode__pb2.ReportShardResponse.FromString,
+        self.ListFiles = channel.unary_unary(
+                '/proto.NameNodeService/ListFiles',
+                request_serializer=proto_dot_namenode__pb2.ListFilesRequest.SerializeToString,
+                response_deserializer=proto_dot_namenode__pb2.ListFilesResponse.FromString,
                 _registered_method=True)
 
 
@@ -60,29 +75,65 @@ class NameNodeServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def RegisterDataNode(self, request, context):
-        """DataNode registration
+        """invoked by datanode for announcement
+        namenode recording the cluster
+        (node_id, address, port, capacity)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def SendHeartbeat(self, request, context):
-        """Heartbeat
+    def AllocateBlocks(self, request, context):
+        """invoked by client for storage targets
+        namenode access record/registry
+        (file_name, file_size, stripe_size, data_blocks_k, parity_blocks_m)
+        (stripe_id, block_id, NodeId)
+        (File, string_id, data_blocks_k, data_blocks_m) => (stripe_id, Placement)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def AllocateStripe(self, request, context):
-        """Allocate stripe placement
+    def CommitFile(self, request, context):
+        """invoked by client to finalize the file status
+        namenode accesses the file metadata structure
+        (File, total_blocks, block_ids[])
+        (Status)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def ReportShard(self, request, context):
-        """Report stored shard
+    def GetFileMetadata(self, request, context):
+        """invoked by client for file metadata query (file retrieval)
+        namenode accesses the file metadata structure
+        (File)
+        (File, stripe_size, data_blocks_k, parity_blocks_m, block_groups)
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteFile(self, request, context):
+        """invoked by client for deletion
+        namenode accesses the file metadata structure
+        (File)
+        (success, message, block_ids[])
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Heartbeat(self, request, context):
+        """invoked by DN
+        namenode accesses the record/registry
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListFiles(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -95,20 +146,35 @@ def add_NameNodeServiceServicer_to_server(servicer, server):
                     request_deserializer=proto_dot_namenode__pb2.RegisterRequest.FromString,
                     response_serializer=proto_dot_namenode__pb2.RegisterResponse.SerializeToString,
             ),
-            'SendHeartbeat': grpc.unary_unary_rpc_method_handler(
-                    servicer.SendHeartbeat,
+            'AllocateBlocks': grpc.unary_unary_rpc_method_handler(
+                    servicer.AllocateBlocks,
+                    request_deserializer=proto_dot_namenode__pb2.AllocateBlocksRequest.FromString,
+                    response_serializer=proto_dot_namenode__pb2.AllocateBlocksResponse.SerializeToString,
+            ),
+            'CommitFile': grpc.unary_unary_rpc_method_handler(
+                    servicer.CommitFile,
+                    request_deserializer=proto_dot_namenode__pb2.CommitFileRequest.FromString,
+                    response_serializer=proto_dot_namenode__pb2.CommitFileResponse.SerializeToString,
+            ),
+            'GetFileMetadata': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetFileMetadata,
+                    request_deserializer=proto_dot_namenode__pb2.GetFileMetadataRequest.FromString,
+                    response_serializer=proto_dot_namenode__pb2.GetFileMetadataResponse.SerializeToString,
+            ),
+            'DeleteFile': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteFile,
+                    request_deserializer=proto_dot_namenode__pb2.DeleteFileRequest.FromString,
+                    response_serializer=proto_dot_namenode__pb2.DeleteFileResponse.SerializeToString,
+            ),
+            'Heartbeat': grpc.unary_unary_rpc_method_handler(
+                    servicer.Heartbeat,
                     request_deserializer=proto_dot_namenode__pb2.HeartbeatRequest.FromString,
                     response_serializer=proto_dot_namenode__pb2.HeartbeatResponse.SerializeToString,
             ),
-            'AllocateStripe': grpc.unary_unary_rpc_method_handler(
-                    servicer.AllocateStripe,
-                    request_deserializer=proto_dot_namenode__pb2.AllocateStripeRequest.FromString,
-                    response_serializer=proto_dot_namenode__pb2.AllocateStripeResponse.SerializeToString,
-            ),
-            'ReportShard': grpc.unary_unary_rpc_method_handler(
-                    servicer.ReportShard,
-                    request_deserializer=proto_dot_namenode__pb2.ReportShardRequest.FromString,
-                    response_serializer=proto_dot_namenode__pb2.ReportShardResponse.SerializeToString,
+            'ListFiles': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListFiles,
+                    request_deserializer=proto_dot_namenode__pb2.ListFilesRequest.FromString,
+                    response_serializer=proto_dot_namenode__pb2.ListFilesResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -149,7 +215,7 @@ class NameNodeService(object):
             _registered_method=True)
 
     @staticmethod
-    def SendHeartbeat(request,
+    def AllocateBlocks(request,
             target,
             options=(),
             channel_credentials=None,
@@ -162,7 +228,115 @@ class NameNodeService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/proto.NameNodeService/SendHeartbeat',
+            '/proto.NameNodeService/AllocateBlocks',
+            proto_dot_namenode__pb2.AllocateBlocksRequest.SerializeToString,
+            proto_dot_namenode__pb2.AllocateBlocksResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CommitFile(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/proto.NameNodeService/CommitFile',
+            proto_dot_namenode__pb2.CommitFileRequest.SerializeToString,
+            proto_dot_namenode__pb2.CommitFileResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFileMetadata(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/proto.NameNodeService/GetFileMetadata',
+            proto_dot_namenode__pb2.GetFileMetadataRequest.SerializeToString,
+            proto_dot_namenode__pb2.GetFileMetadataResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteFile(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/proto.NameNodeService/DeleteFile',
+            proto_dot_namenode__pb2.DeleteFileRequest.SerializeToString,
+            proto_dot_namenode__pb2.DeleteFileResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Heartbeat(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/proto.NameNodeService/Heartbeat',
             proto_dot_namenode__pb2.HeartbeatRequest.SerializeToString,
             proto_dot_namenode__pb2.HeartbeatResponse.FromString,
             options,
@@ -176,7 +350,7 @@ class NameNodeService(object):
             _registered_method=True)
 
     @staticmethod
-    def AllocateStripe(request,
+    def ListFiles(request,
             target,
             options=(),
             channel_credentials=None,
@@ -189,36 +363,9 @@ class NameNodeService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/proto.NameNodeService/AllocateStripe',
-            proto_dot_namenode__pb2.AllocateStripeRequest.SerializeToString,
-            proto_dot_namenode__pb2.AllocateStripeResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def ReportShard(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/proto.NameNodeService/ReportShard',
-            proto_dot_namenode__pb2.ReportShardRequest.SerializeToString,
-            proto_dot_namenode__pb2.ReportShardResponse.FromString,
+            '/proto.NameNodeService/ListFiles',
+            proto_dot_namenode__pb2.ListFilesRequest.SerializeToString,
+            proto_dot_namenode__pb2.ListFilesResponse.FromString,
             options,
             channel_credentials,
             insecure,

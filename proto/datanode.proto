@@ -5,47 +5,50 @@ package proto;
 import "proto/common.proto";
 
 service DataNodeService {
-    rpc WriteShard (
-        WriteShardRequest
-    ) returns (
-        WriteShardResponse
-    );
+    // all methods only invoked by clientfor block ops
+  rpc WriteBlock(WriteBlockRequest)
+  returns (WriteBlockResponse);
+    // (block_id, data_bytes, block_size)
+    // (Status, NodeId, block_id)
+    // (Block) => (Status, NodeId, block_id)
 
-    rpc ReadShard (
-        ReadShardRequest
-    ) returns (
-        ReadShardResponse
-    );
+  rpc ReadBlock(ReadBlockRequest)
+  returns (ReadBlockResponse);
+    // (block_id)
+    // (Status, Block)
 
-    rpc DeleteShard (
-        DeleteShardRequest
-    ) returns (
-        DeleteShardResponse
-    );
+  rpc DeleteBlock(DeleteBlockRequest)
+  returns (DeleteBlockResponse);
+  // (block_id)
+  // (Status, NodeId, block_id)
+
 }
 
-message WriteShardRequest {
-    ShardMetadata shard = 1;
-    bytes data = 2;
+message WriteBlockRequest {
+  Block block = 1;
 }
 
-message WriteShardResponse {
-    Status status = 1;
+message WriteBlockResponse {
+  Status status   = 1;
+  NodeId node     = 2;
+  string block_id = 3;
 }
 
-message ReadShardRequest {
-    ShardId shard = 1;
+message ReadBlockRequest {
+  string block_id = 1;
 }
 
-message ReadShardResponse {
-    Status status = 1;
-    bytes data = 2;
+message ReadBlockResponse {
+  Status status = 1;
+  Block  block  = 2;
 }
 
-message DeleteShardRequest {
-    ShardId shard = 1;
+message DeleteBlockRequest {
+  string block_id = 1;
 }
 
-message DeleteShardResponse {
-    Status status = 1;
+message DeleteBlockResponse {
+  Status status   = 1;
+  NodeId node     = 2;
+  string block_id = 3;
 }

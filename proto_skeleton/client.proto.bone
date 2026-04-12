@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package proto_skeleton;
+// all the comm this does:
+// ask namenode for block groups by sending file related attr
+// send data to data node
+
+// app level methods
+/*
+ upload_file(filepath) (AllocateBlocks_NN, WriteBlock_DN, CommitFile__NN)
+ download_file(filename) (GetFileMetaData_NN, ReadBlock_DN)
+ delete_file(filename) (DeleteFile_NN, DeleteBlock_DN)
+ read_file_from_disk()
+ write_file_from_disk()
+
+ split_file_into_stripes()
+ process_stripe() (chunking, encoding, dispatch scheduling)
+ chunk_stripes() (make stripes into k equal blocks)
+
+ encode_stripe(data) (run reed solomon encoding)
+ decode_stripe() (reconstruct missing data blocks)
+
+ parallel_write_pipeline()
+ parallel_read_pipeline()
+ send_block()
+ recieve_block()
+ collect_acks()
+
+ merge_stripes()
+ reconstruct_file()
+ validate_file_integrity()
+
+ measure_latency()
+ measure_throughput()
+ log_metrics()
+
+ handle_timeout()
+ close_connections()
+ NO RPC METHODS AT ALL
+ */

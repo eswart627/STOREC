@@ -5,63 +5,111 @@ package proto;
 import "proto/common.proto";
 
 service NameNodeService {
-    // DataNode registration
-    rpc RegisterDataNode (RegisterRequest)
-    returns (RegisterResponse);
+  rpc RegisterDataNode(RegisterRequest)
+  returns (RegisterResponse);
+// invoked by datanode for announcement
+// namenode recording the cluster
+// (node_id, address, port, capacity)
 
-    // Heartbeat
-    rpc SendHeartbeat (HeartbeatRequest) 
-    returns (HeartbeatResponse);
+  rpc AllocateBlocks(AllocateBlocksRequest)
+  returns (AllocateBlocksResponse);
+// invoked by client for storage targets
+// namenode access record/registry
+// (file_name, file_size, stripe_size, data_blocks_k, parity_blocks_m)
+// (stripe_id, block_id, NodeId)
+// (File, string_id, data_blocks_k, data_blocks_m) => (stripe_id, Placement)
 
-    // Allocate stripe placement
-    rpc AllocateStripe (
-        AllocateStripeRequest
-    ) returns (
-        AllocateStripeResponse
-    );
+  rpc CommitFile(CommitFileRequest)
+  returns (CommitFileResponse);
+// invoked by client to finalize the file status
+// namenode accesses the file metadata structure
+// (File, total_blocks, block_ids[])
+// (Status)
 
-    // Report stored shard
-    rpc ReportShard (
-        ReportShardRequest
-    ) returns (
-        ReportShardResponse
-    );
+  rpc GetFileMetadata (GetFileMetadataRequest)
+  returns (GetFileMetadataResponse);
+// invoked by client for file metadata query (file retrieval)
+// namenode accesses the file metadata structure
+// (File)
+// (File, stripe_size, data_blocks_k, parity_blocks_m, block_groups)
 
+  rpc DeleteFile (DeleteFileRequest)
+  returns (DeleteFileResponse);
+// invoked by client for deletion
+// namenode accesses the file metadata structure
+// (File)
+// (success, message, block_ids[])
+
+  rpc Heartbeat (HeartbeatRequest)
+  returns (HeartbeatResponse);
+// invoked by DN
+// namenode accesses the record/registry
+
+  rpc ListFiles (ListFilesRequest)
+  returns (ListFilesResponse);
 }
 
 message RegisterRequest {
-    NodeId node = 1;
-    int64 capacity_bytes = 2;
+  NodeId node           = 1;
+  int64  capacity_bytes = 2;
 }
 
 message RegisterResponse {
-    Status status = 1;
+  Status status = 1;
+}
+
+message AllocateBlocksRequest{
+  File  file_details    = 1;
+  int64 stripe_size     = 2;
+  int32 data_blocks_k   = 3;
+  int32 parity_blocks_m = 4;
+}
+
+message AllocateBlocksResponse{
+  repeated BlockGroups block_groups = 1;
+}
+
+message CommitFileRequest{
+  File            file_details = 1;
+  int32           total_blocks = 2;
+  repeated string block_ids    = 3;
+}
+
+message CommitFileResponse{
+  Status status = 1;
+}
+
+message GetFileMetadataRequest{
+  File file_details = 1;
+}
+
+message GetFileMetadataResponse{
+  File                 file_details    = 1;
+  int64                stripe_size     = 2;
+  int32                data_blocks_k   = 3;
+  int32                parity_blocks_m = 4;
+  repeated BlockGroups block_groups    = 5;
+}
+
+message DeleteFileRequest{
+  File file_details = 1;
+}
+
+message DeleteFileResponse{
+  Status          status    = 1;
+  repeated string block_ids = 2;
+}
+
+message ListFilesRequest{}
+
+message ListFilesResponse{
+  repeated File file_details = 1;
 }
 
 message HeartbeatRequest {
-    Heartbeat heartbeat = 1;
+  HeartbeatInfo heartbeat = 1;
 }
 
 message HeartbeatResponse {
-    Status status = 1;
-}
-
-message AllocateStripeRequest {
-    string file_name = 1;
-    ECPolicy policy = 2;
-}
-
-message AllocateStripeResponse {
-    Status status = 1;
-    StripeId stripe = 2;
-    repeated ShardPlacement placements = 3;
-}
-
-message ReportShardRequest {
-    ShardMetadata shard = 1;
-    NodeId node = 2;
-}
-
-message ReportShardResponse {
-    Status status = 1;
+  Status status = 1;
 }

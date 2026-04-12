@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from proto import common_pb2 as proto_dot_common__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14proto/namenode.proto\x12\x05proto\x1a\x12proto/common.proto\"F\n\x0fRegisterRequest\x12\x1b\n\x04node\x18\x01 \x01(\x0b\x32\r.proto.NodeId\x12\x16\n\x0e\x63\x61pacity_bytes\x18\x02 \x01(\x03\"1\n\x10RegisterResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status\"7\n\x10HeartbeatRequest\x12#\n\theartbeat\x18\x01 \x01(\x0b\x32\x10.proto.Heartbeat\"2\n\x11HeartbeatResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status\"K\n\x15\x41llocateStripeRequest\x12\x11\n\tfile_name\x18\x01 \x01(\t\x12\x1f\n\x06policy\x18\x02 \x01(\x0b\x32\x0f.proto.ECPolicy\"\x83\x01\n\x16\x41llocateStripeResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status\x12\x1f\n\x06stripe\x18\x02 \x01(\x0b\x32\x0f.proto.StripeId\x12)\n\nplacements\x18\x03 \x03(\x0b\x32\x15.proto.ShardPlacement\"V\n\x12ReportShardRequest\x12#\n\x05shard\x18\x01 \x01(\x0b\x32\x14.proto.ShardMetadata\x12\x1b\n\x04node\x18\x02 \x01(\x0b\x32\r.proto.NodeId\"4\n\x13ReportShardResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status2\xaf\x02\n\x0fNameNodeService\x12\x43\n\x10RegisterDataNode\x12\x16.proto.RegisterRequest\x1a\x17.proto.RegisterResponse\x12\x42\n\rSendHeartbeat\x12\x17.proto.HeartbeatRequest\x1a\x18.proto.HeartbeatResponse\x12M\n\x0e\x41llocateStripe\x12\x1c.proto.AllocateStripeRequest\x1a\x1d.proto.AllocateStripeResponse\x12\x44\n\x0bReportShard\x12\x19.proto.ReportShardRequest\x1a\x1a.proto.ReportShardResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14proto/namenode.proto\x12\x05proto\x1a\x12proto/common.proto\"F\n\x0fRegisterRequest\x12\x1b\n\x04node\x18\x01 \x01(\x0b\x32\r.proto.NodeId\x12\x16\n\x0e\x63\x61pacity_bytes\x18\x02 \x01(\x03\"1\n\x10RegisterResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status\"\x7f\n\x15\x41llocateBlocksRequest\x12!\n\x0c\x66ile_details\x18\x01 \x01(\x0b\x32\x0b.proto.File\x12\x13\n\x0bstripe_size\x18\x02 \x01(\x03\x12\x15\n\rdata_blocks_k\x18\x03 \x01(\x05\x12\x17\n\x0fparity_blocks_m\x18\x04 \x01(\x05\"B\n\x16\x41llocateBlocksResponse\x12(\n\x0c\x62lock_groups\x18\x01 \x03(\x0b\x32\x12.proto.BlockGroups\"_\n\x11\x43ommitFileRequest\x12!\n\x0c\x66ile_details\x18\x01 \x01(\x0b\x32\x0b.proto.File\x12\x14\n\x0ctotal_blocks\x18\x02 \x01(\x05\x12\x11\n\tblock_ids\x18\x03 \x03(\t\"3\n\x12\x43ommitFileResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status\";\n\x16GetFileMetadataRequest\x12!\n\x0c\x66ile_details\x18\x01 \x01(\x0b\x32\x0b.proto.File\"\xab\x01\n\x17GetFileMetadataResponse\x12!\n\x0c\x66ile_details\x18\x01 \x01(\x0b\x32\x0b.proto.File\x12\x13\n\x0bstripe_size\x18\x02 \x01(\x03\x12\x15\n\rdata_blocks_k\x18\x03 \x01(\x05\x12\x17\n\x0fparity_blocks_m\x18\x04 \x01(\x05\x12(\n\x0c\x62lock_groups\x18\x05 \x03(\x0b\x32\x12.proto.BlockGroups\"6\n\x11\x44\x65leteFileRequest\x12!\n\x0c\x66ile_details\x18\x01 \x01(\x0b\x32\x0b.proto.File\"F\n\x12\x44\x65leteFileResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status\x12\x11\n\tblock_ids\x18\x02 \x03(\t\"\x12\n\x10ListFilesRequest\"6\n\x11ListFilesResponse\x12!\n\x0c\x66ile_details\x18\x01 \x03(\x0b\x32\x0b.proto.File\";\n\x10HeartbeatRequest\x12\'\n\theartbeat\x18\x01 \x01(\x0b\x32\x14.proto.HeartbeatInfo\"2\n\x11HeartbeatResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status2\xfd\x03\n\x0fNameNodeService\x12\x43\n\x10RegisterDataNode\x12\x16.proto.RegisterRequest\x1a\x17.proto.RegisterResponse\x12M\n\x0e\x41llocateBlocks\x12\x1c.proto.AllocateBlocksRequest\x1a\x1d.proto.AllocateBlocksResponse\x12\x41\n\nCommitFile\x12\x18.proto.CommitFileRequest\x1a\x19.proto.CommitFileResponse\x12P\n\x0fGetFileMetadata\x12\x1d.proto.GetFileMetadataRequest\x1a\x1e.proto.GetFileMetadataResponse\x12\x41\n\nDeleteFile\x12\x18.proto.DeleteFileRequest\x1a\x19.proto.DeleteFileResponse\x12>\n\tHeartbeat\x12\x17.proto.HeartbeatRequest\x1a\x18.proto.HeartbeatResponse\x12>\n\tListFiles\x12\x17.proto.ListFilesRequest\x1a\x18.proto.ListFilesResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,18 +36,30 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_REGISTERREQUEST']._serialized_end=121
   _globals['_REGISTERRESPONSE']._serialized_start=123
   _globals['_REGISTERRESPONSE']._serialized_end=172
-  _globals['_HEARTBEATREQUEST']._serialized_start=174
-  _globals['_HEARTBEATREQUEST']._serialized_end=229
-  _globals['_HEARTBEATRESPONSE']._serialized_start=231
-  _globals['_HEARTBEATRESPONSE']._serialized_end=281
-  _globals['_ALLOCATESTRIPEREQUEST']._serialized_start=283
-  _globals['_ALLOCATESTRIPEREQUEST']._serialized_end=358
-  _globals['_ALLOCATESTRIPERESPONSE']._serialized_start=361
-  _globals['_ALLOCATESTRIPERESPONSE']._serialized_end=492
-  _globals['_REPORTSHARDREQUEST']._serialized_start=494
-  _globals['_REPORTSHARDREQUEST']._serialized_end=580
-  _globals['_REPORTSHARDRESPONSE']._serialized_start=582
-  _globals['_REPORTSHARDRESPONSE']._serialized_end=634
-  _globals['_NAMENODESERVICE']._serialized_start=637
-  _globals['_NAMENODESERVICE']._serialized_end=940
+  _globals['_ALLOCATEBLOCKSREQUEST']._serialized_start=174
+  _globals['_ALLOCATEBLOCKSREQUEST']._serialized_end=301
+  _globals['_ALLOCATEBLOCKSRESPONSE']._serialized_start=303
+  _globals['_ALLOCATEBLOCKSRESPONSE']._serialized_end=369
+  _globals['_COMMITFILEREQUEST']._serialized_start=371
+  _globals['_COMMITFILEREQUEST']._serialized_end=466
+  _globals['_COMMITFILERESPONSE']._serialized_start=468
+  _globals['_COMMITFILERESPONSE']._serialized_end=519
+  _globals['_GETFILEMETADATAREQUEST']._serialized_start=521
+  _globals['_GETFILEMETADATAREQUEST']._serialized_end=580
+  _globals['_GETFILEMETADATARESPONSE']._serialized_start=583
+  _globals['_GETFILEMETADATARESPONSE']._serialized_end=754
+  _globals['_DELETEFILEREQUEST']._serialized_start=756
+  _globals['_DELETEFILEREQUEST']._serialized_end=810
+  _globals['_DELETEFILERESPONSE']._serialized_start=812
+  _globals['_DELETEFILERESPONSE']._serialized_end=882
+  _globals['_LISTFILESREQUEST']._serialized_start=884
+  _globals['_LISTFILESREQUEST']._serialized_end=902
+  _globals['_LISTFILESRESPONSE']._serialized_start=904
+  _globals['_LISTFILESRESPONSE']._serialized_end=958
+  _globals['_HEARTBEATREQUEST']._serialized_start=960
+  _globals['_HEARTBEATREQUEST']._serialized_end=1019
+  _globals['_HEARTBEATRESPONSE']._serialized_start=1021
+  _globals['_HEARTBEATRESPONSE']._serialized_end=1071
+  _globals['_NAMENODESERVICE']._serialized_start=1074
+  _globals['_NAMENODESERVICE']._serialized_end=1583
 # @@protoc_insertion_point(module_scope)

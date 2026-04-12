@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package proto_skeleton;
+
+service NameNodeService{
+    // whole namenode service
+    // metadata managing and block placement in DN
+    // DN management functionalities
+}
+
+// int 32, int 64
+// uint 32, uint 64
+// fixed 32, fixed 64
+// sfized 32, sfixed 64
+// float
+// double
+// bool
+// string
+// bytes
+
+//all the comm it does:
+// metadata to and fro for client
+// DN registration and heartbeat mechanism
+
+// app level methods
+/*
+ start_node_record()
+ mark_node_alive()
+ mark_node_dead()
+ refresh_last_seen_timeout()
+ update_cluster_state()
+
+ get_available_nodes()
+ check_node_capacity()
+ select_datanodes()
+ generate_block_ids()
+ calculate_stripes()
+
+ validate_file_commit()
+ store_file_metadata() => modify runtime state
+ persist_metadata() => disk save
+ lookup_file_table()
+ remove_file_metadata()
+ update_block_map()
+
+ cleanup_failed_blocks()
+ rebalance_nodes()
+ schedule_replication()
+ */
+
+// RPC methods
+/*
+ RegisterDataNode
+ HeartBeat
+ GetClusterStatus
+
+ AllocateBlocks
+ CommitFile
+ GetFileMetadata
+ DeleteFile
+
+ ListFiles
+ */
+
+rpc RegisterDataNode(RegisterDataNodeRequest)
+returns (RegisterDataNodeResponse);
+// invoked by datanode for announcement
+// namenode recording the cluster
+// (node_id, address, port, capacity)
+// (success, message)
+// (NodeId, capacity) => (Status)
+
+rpc AllocateBlocks(AllocateBlocksRequest)
+returns (AllocateBlocksResponse);
+// invoked by client for storage targets
+// namenode access record/registry
+
+rpc CommitFile(CommitFileRequest)
+returns (CommitFileResponse);
+// invoked by client to finalize the file status
+// namenode accesses the file metadata structure
+
+rpc GetFileMetadata (GetFileMetadataRequest)
+returns (GetFileMetadataResponse);
+// invoked by client for file metadata query (file retrieval)
+// namenode accesses the file metadata structure
+
+rpc DeleteData (DeleteFileRequest)
+returns (DeleteFileResponse);
+// invoked by client for deletion
+// namenode accesses the file metadata structure
+
+rpc Heartbeat (HeartbeatRequest)
+returns (HeartbeatResponse);
+// invoked by DN
+// namenode accesses the record/registry
+// (NodeId, timestamp) => (Status)
+
+rpc ListFiles (ListFilesRequest)
+returns (ListFileResponse);
+// invoked by client for listing files
+// no request body
+// (File[])

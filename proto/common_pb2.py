@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12proto/common.proto\x12\x05proto\"9\n\x06NodeId\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x10\n\x08hostname\x18\x02 \x01(\t\x12\x0c\n\x04port\x18\x03 \x01(\x05\"*\n\x06Status\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"K\n\x08\x45\x43Policy\x12\x13\n\x0b\x64\x61ta_shards\x18\x01 \x01(\x05\x12\x15\n\rparity_shards\x18\x02 \x01(\x05\x12\x13\n\x0bstripe_size\x18\x03 \x01(\x05\"\x1d\n\x08StripeId\x12\x11\n\tstripe_id\x18\x01 \x01(\t\"1\n\x07ShardId\x12\x11\n\tstripe_id\x18\x01 \x01(\t\x12\x13\n\x0bshard_index\x18\x02 \x01(\x05\"K\n\rShardMetadata\x12\x11\n\tstripe_id\x18\x01 \x01(\t\x12\x13\n\x0bshard_index\x18\x02 \x01(\x05\x12\x12\n\nsize_bytes\x18\x03 \x01(\x03\"R\n\x0eShardPlacement\x12#\n\x05shard\x18\x01 \x01(\x0b\x32\x14.proto.ShardMetadata\x12\x1b\n\x04node\x18\x02 \x01(\x0b\x32\r.proto.NodeId\"W\n\tHeartbeat\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x11\n\ttimestamp\x18\x02 \x01(\x03\x12\x12\n\nused_bytes\x18\x03 \x01(\x03\x12\x12\n\nfree_bytes\x18\x04 \x01(\x03\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12proto/common.proto\x12\x05proto\"9\n\x06NodeId\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x10\n\x08hostname\x18\x02 \x01(\t\x12\x0c\n\x04port\x18\x03 \x01(\x05\"*\n\x06Status\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\",\n\x04\x46ile\x12\x11\n\tfile_name\x18\x01 \x01(\t\x12\x11\n\tfile_size\x18\x02 \x01(\x03\":\n\tPlacement\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x1b\n\x04node\x18\x02 \x01(\x0b\x32\r.proto.NodeId\"E\n\x0b\x42lockGroups\x12\x11\n\tstripe_id\x18\x01 \x01(\t\x12#\n\tplacement\x18\x02 \x03(\x0b\x32\x10.proto.Placement\"A\n\x05\x42lock\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x12\n\nsize_bytes\x18\x02 \x01(\x03\x12\x12\n\ndata_bytes\x18\x03 \x01(\x0c\"[\n\rHeartbeatInfo\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x11\n\ttimestamp\x18\x02 \x01(\x03\x12\x12\n\nused_bytes\x18\x03 \x01(\x03\x12\x12\n\nfree_bytes\x18\x04 \x01(\x03\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,16 +35,14 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_NODEID']._serialized_end=86
   _globals['_STATUS']._serialized_start=88
   _globals['_STATUS']._serialized_end=130
-  _globals['_ECPOLICY']._serialized_start=132
-  _globals['_ECPOLICY']._serialized_end=207
-  _globals['_STRIPEID']._serialized_start=209
-  _globals['_STRIPEID']._serialized_end=238
-  _globals['_SHARDID']._serialized_start=240
-  _globals['_SHARDID']._serialized_end=289
-  _globals['_SHARDMETADATA']._serialized_start=291
-  _globals['_SHARDMETADATA']._serialized_end=366
-  _globals['_SHARDPLACEMENT']._serialized_start=368
-  _globals['_SHARDPLACEMENT']._serialized_end=450
-  _globals['_HEARTBEAT']._serialized_start=452
-  _globals['_HEARTBEAT']._serialized_end=539
+  _globals['_FILE']._serialized_start=132
+  _globals['_FILE']._serialized_end=176
+  _globals['_PLACEMENT']._serialized_start=178
+  _globals['_PLACEMENT']._serialized_end=236
+  _globals['_BLOCKGROUPS']._serialized_start=238
+  _globals['_BLOCKGROUPS']._serialized_end=307
+  _globals['_BLOCK']._serialized_start=309
+  _globals['_BLOCK']._serialized_end=374
+  _globals['_HEARTBEATINFO']._serialized_start=376
+  _globals['_HEARTBEATINFO']._serialized_end=467
 # @@protoc_insertion_point(module_scope)

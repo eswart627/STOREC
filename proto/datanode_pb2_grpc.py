@@ -34,40 +34,48 @@ class DataNodeServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.WriteShard = channel.unary_unary(
-                '/proto.DataNodeService/WriteShard',
-                request_serializer=proto_dot_datanode__pb2.WriteShardRequest.SerializeToString,
-                response_deserializer=proto_dot_datanode__pb2.WriteShardResponse.FromString,
+        self.WriteBlock = channel.unary_unary(
+                '/proto.DataNodeService/WriteBlock',
+                request_serializer=proto_dot_datanode__pb2.WriteBlockRequest.SerializeToString,
+                response_deserializer=proto_dot_datanode__pb2.WriteBlockResponse.FromString,
                 _registered_method=True)
-        self.ReadShard = channel.unary_unary(
-                '/proto.DataNodeService/ReadShard',
-                request_serializer=proto_dot_datanode__pb2.ReadShardRequest.SerializeToString,
-                response_deserializer=proto_dot_datanode__pb2.ReadShardResponse.FromString,
+        self.ReadBlock = channel.unary_unary(
+                '/proto.DataNodeService/ReadBlock',
+                request_serializer=proto_dot_datanode__pb2.ReadBlockRequest.SerializeToString,
+                response_deserializer=proto_dot_datanode__pb2.ReadBlockResponse.FromString,
                 _registered_method=True)
-        self.DeleteShard = channel.unary_unary(
-                '/proto.DataNodeService/DeleteShard',
-                request_serializer=proto_dot_datanode__pb2.DeleteShardRequest.SerializeToString,
-                response_deserializer=proto_dot_datanode__pb2.DeleteShardResponse.FromString,
+        self.DeleteBlock = channel.unary_unary(
+                '/proto.DataNodeService/DeleteBlock',
+                request_serializer=proto_dot_datanode__pb2.DeleteBlockRequest.SerializeToString,
+                response_deserializer=proto_dot_datanode__pb2.DeleteBlockResponse.FromString,
                 _registered_method=True)
 
 
 class DataNodeServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def WriteShard(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+    def WriteBlock(self, request, context):
+        """all methods only invoked by clientfor block ops
+        (block_id, data_bytes, block_size)
+        (Status, NodeId, block_id)
+        (Block) => (Status, NodeId, block_id)
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def ReadShard(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+    def ReadBlock(self, request, context):
+        """(block_id)
+        (Status, Block)
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def DeleteShard(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+    def DeleteBlock(self, request, context):
+        """(block_id)
+        (Status, NodeId, block_id)
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -75,20 +83,20 @@ class DataNodeServiceServicer(object):
 
 def add_DataNodeServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'WriteShard': grpc.unary_unary_rpc_method_handler(
-                    servicer.WriteShard,
-                    request_deserializer=proto_dot_datanode__pb2.WriteShardRequest.FromString,
-                    response_serializer=proto_dot_datanode__pb2.WriteShardResponse.SerializeToString,
+            'WriteBlock': grpc.unary_unary_rpc_method_handler(
+                    servicer.WriteBlock,
+                    request_deserializer=proto_dot_datanode__pb2.WriteBlockRequest.FromString,
+                    response_serializer=proto_dot_datanode__pb2.WriteBlockResponse.SerializeToString,
             ),
-            'ReadShard': grpc.unary_unary_rpc_method_handler(
-                    servicer.ReadShard,
-                    request_deserializer=proto_dot_datanode__pb2.ReadShardRequest.FromString,
-                    response_serializer=proto_dot_datanode__pb2.ReadShardResponse.SerializeToString,
+            'ReadBlock': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReadBlock,
+                    request_deserializer=proto_dot_datanode__pb2.ReadBlockRequest.FromString,
+                    response_serializer=proto_dot_datanode__pb2.ReadBlockResponse.SerializeToString,
             ),
-            'DeleteShard': grpc.unary_unary_rpc_method_handler(
-                    servicer.DeleteShard,
-                    request_deserializer=proto_dot_datanode__pb2.DeleteShardRequest.FromString,
-                    response_serializer=proto_dot_datanode__pb2.DeleteShardResponse.SerializeToString,
+            'DeleteBlock': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteBlock,
+                    request_deserializer=proto_dot_datanode__pb2.DeleteBlockRequest.FromString,
+                    response_serializer=proto_dot_datanode__pb2.DeleteBlockResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -102,7 +110,7 @@ class DataNodeService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def WriteShard(request,
+    def WriteBlock(request,
             target,
             options=(),
             channel_credentials=None,
@@ -115,9 +123,9 @@ class DataNodeService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/proto.DataNodeService/WriteShard',
-            proto_dot_datanode__pb2.WriteShardRequest.SerializeToString,
-            proto_dot_datanode__pb2.WriteShardResponse.FromString,
+            '/proto.DataNodeService/WriteBlock',
+            proto_dot_datanode__pb2.WriteBlockRequest.SerializeToString,
+            proto_dot_datanode__pb2.WriteBlockResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -129,7 +137,7 @@ class DataNodeService(object):
             _registered_method=True)
 
     @staticmethod
-    def ReadShard(request,
+    def ReadBlock(request,
             target,
             options=(),
             channel_credentials=None,
@@ -142,9 +150,9 @@ class DataNodeService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/proto.DataNodeService/ReadShard',
-            proto_dot_datanode__pb2.ReadShardRequest.SerializeToString,
-            proto_dot_datanode__pb2.ReadShardResponse.FromString,
+            '/proto.DataNodeService/ReadBlock',
+            proto_dot_datanode__pb2.ReadBlockRequest.SerializeToString,
+            proto_dot_datanode__pb2.ReadBlockResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -156,7 +164,7 @@ class DataNodeService(object):
             _registered_method=True)
 
     @staticmethod
-    def DeleteShard(request,
+    def DeleteBlock(request,
             target,
             options=(),
             channel_credentials=None,
@@ -169,9 +177,9 @@ class DataNodeService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/proto.DataNodeService/DeleteShard',
-            proto_dot_datanode__pb2.DeleteShardRequest.SerializeToString,
-            proto_dot_datanode__pb2.DeleteShardResponse.FromString,
+            '/proto.DataNodeService/DeleteBlock',
+            proto_dot_datanode__pb2.DeleteBlockRequest.SerializeToString,
+            proto_dot_datanode__pb2.DeleteBlockResponse.FromString,
             options,
             channel_credentials,
             insecure,

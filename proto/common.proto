@@ -3,49 +3,40 @@ syntax = "proto3";
 package proto;
 
 message NodeId {
-    string node_id = 1;
-    string hostname = 2;
-    int32 port = 3;
+  string node_id = 1;
+  string hostname = 2;
+  int32  port    = 3;
 }
 
 message Status {
-    bool success = 1;
-    string message = 2;
+  bool   success = 1;
+  string message = 2;
 }
 
-message ECPolicy {
-    int32 data_shards = 1;     // k
-    int32 parity_shards = 2;   // m
-    int32 stripe_size = 3;     // bytes
+message File {
+  string file_name = 1;
+  int64  file_size = 2;
 }
 
-message StripeId {
-    string stripe_id = 1;
+message Placement {
+  string block_id = 1;
+  NodeId node     = 2;
 }
 
-// Shard identity
-message ShardId {
-    string stripe_id = 1;
-    int32 shard_index = 2;
+message BlockGroups{
+  string             stripe_id = 1;
+  repeated Placement placement = 2;
 }
 
-// Shard metadata
-message ShardMetadata {
-    string stripe_id = 1;
-    int32 shard_index = 2;
-    int64 size_bytes = 3;
+message Block {
+  string block_id   = 1;
+  int64  size_bytes = 2;
+  bytes  data_bytes = 3;
 }
 
-// Placement information
-message ShardPlacement {
-    ShardMetadata shard = 1;
-    NodeId node = 2;
-}
-
-// Heartbeat information
-message Heartbeat {
-    string node_id = 1;
-    int64 timestamp = 2;
-    int64 used_bytes = 3;
-    int64 free_bytes = 4;
+message HeartbeatInfo {
+  string node_id    = 1;
+  int64  timestamp  = 2;
+  int64  used_bytes = 3;
+  int64  free_bytes = 4;
 }

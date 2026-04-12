@@ -1,7 +1,7 @@
-PascalCase -> messages
-snake_case -> field/attributes
-UPPER_CASE -> enum values
-camelCase -> func names
+PascalCase -> messages, RPC_METHODS
+snake_case -> field/attributes, nrpc funcs
+UPPER_CASE -> enum values, config
+
 
 protobuf files compilation:
 python -m grpc_tools.protoc ^ -I . ^ --python_out=. ^ --grpc_python_out=. ^ proto\common.proto ^ proto\namenode.proto ^ proto\datanode.proto
