@@ -37,6 +37,7 @@ class RegistrationManager:
         existing_id = identity_store.get_id()
         
         node = common_pb2.Node(
+            
             hostname=self.config.hostname,
             port=self.config.port
         )

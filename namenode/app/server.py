@@ -85,7 +85,7 @@ class NameNodeService(
                 capacity=request.capacity_bytes,
                 mode=1,
             )
-            self.logger.log("Datanode with ID ", f"{existing_node_id} at {address} (re-registered)")
+            self.logger.log("Datanode with ID ", f"{node_id} at {address} (re-registered)")
             return namenode_pb2.RegisterResponse(
                 node_id=node_id,
                 status=common_pb2.Status(
