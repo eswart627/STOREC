@@ -30,7 +30,7 @@ class NameNodeService(
     def __init__(self, registry, logger):
         self.registry = registry
         self.logger = logger
-        self.heartbeat_manager = HeartbeatManager(self.logger,self.registry)
+        #self.heartbeat_manager = HeartbeatManager(self.logger,self.registry)
     def RegisterDataNode(self, request:namenode_pb2.RegisterRequest, context)->namenode_pb2.RegisterResponse:
         """
         Register a data node with the name node.
@@ -41,39 +41,58 @@ class NameNodeService(
         Returns:
             RegisterResponse(Status(success:bool,message:str))
         """
+        node_id=request.node_id
         node = request.node
         address=f"{node.hostname}:{node.port}"
-        if self.registry.lookup.get(address):
-            existing_node_id = self.registry.lookup[address]
+        if not node_id:
+            if self.registry.lookup.get(address):
+                existing_node_id = self.registry.lookup[address]
+                self.registry.register(
+                    node_id=existing_node_id,
+                    hostname=node.hostname,
+                    port=node.port,
+                    capacity=request.capacity_bytes,
+                    mode=1,
+                )
+                return namenode_pb2.RegisterResponse(
+                    node_id=existing_node_id,
+                    status=common_pb2.Status(
+                        success=True,
+                        message="Already registered",
+                    )
+                )
+            else:
+                
+                node_id=self.registry.register(
+                    node_id=None,
+                    hostname=node.hostname,
+                    port=node.port,
+                    capacity=request.capacity_bytes,
+                    mode=0,
+                )
+                return namenode_pb2.RegisterResponse(
+                    node_id=node_id,
+                    status=common_pb2.Status(
+                        success=True,
+                        message="Registered",
+                    )
+                )
+        else:
             self.registry.register(
-                node_id=existing_node_id,
+                node_id=node_id,
                 hostname=node.hostname,
                 port=node.port,
                 capacity=request.capacity_bytes,
+                mode=1,
             )
             return namenode_pb2.RegisterResponse(
-                node_id=existing_node_id,
+                node_id=node_id,
                 status=common_pb2.Status(
                     success=True,
-                    message="Already registered",
+                    message="Heartbeat Recorded",
                 )
             )
-        node_id=str(uuid.uuid4())
-        self.registry.register(
-            node_id=node_id,
-            hostname=node.hostname,
-            port=node.port,
-            capacity=request.capacity_bytes,
-        )
-        message = "Registered successfully"
-
-        self.logger.log("REGISTER", f"{node_id} ({message})")
-
-        return namenode_pb2.RegisterResponse(
-        node_id=node_id,
-        status=common_pb2.Status(success=True, message=message)
-        )
-
+        
     def SendHeartbeat(self, request:namenode_pb2.HeartbeatRequest, context)->namenode_pb2.HeartbeatResponse:
         """
         Send a heartbeat to the name node.
@@ -84,9 +103,23 @@ class NameNodeService(
         Returns:
             HeartbeatResponse(Status(success:bool,message:str))
         """
+        heartbeat = request.heartbeat
         
-        return self.heartbeat_manager.handle_heartbeat(request, context)
-
+        # Log the received heartbeat on NameNode side
+        self.logger.log(
+            "HEARTBEAT_RECEIVED",
+            f"node_id={heartbeat.node_id}, timestamp={heartbeat.timestamp}, "
+            f"used_bytes={heartbeat.used_bytes}, free_bytes={heartbeat.free_bytes}"
+        )
+        
+        self.registry.heartbeat(heartbeat.node_id)
+        return namenode_pb2.HeartbeatResponse(
+            status=common_pb2.Status(
+                success=True, 
+                message=f"ACK for node {heartbeat.node_id} at {heartbeat.timestamp}"
+            )
+        )
+        
     def AllocateStripe(self, request:namenode_pb2.AllocateStripeRequest, context)->namenode_pb2.AllocateStripeResponse:
         """
         Under Maintainence
