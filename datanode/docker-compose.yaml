@@ -1,16 +1,19 @@
+version: "3.9"
+
 services:
   datanode:
     build:
       context: .
-      dockerfile: datanode/Dockerfile
+      dockerfile: /Dockerfile
+    image: storec-datanode
     container_name: datanode-v3
-    ports:
-      - "50052:50052"  # Maps [Host Port]:[Container Port]
     env_file:
-      - ./datanode/.env
+      - ./.env
+    ports:
+      - "50052:50052"
     volumes:
-      # This maps a local folder named 'dn_storage' to the container's '/data'
-      - ./dn_storage:/data
-    extra_hosts:
-      - "host.docker.internal:host-gateway"  # Allows container to access host services
+      - storec_dn1_data:/data
     restart: always
+
+volumes:
+  storec_dn1_data:

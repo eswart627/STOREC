@@ -10,13 +10,13 @@ from ..db_manager import get_connection
 
 
 node_template = {
-    "dn_address": "0.0.0.0",
-    "dn_port": 0,
-    "dn_status": "INACTIVE",
-    "dn_last_heartbeat": None,
-    "dn_capacity": 0,
-    "dn_used": 0,
-    "dn_available": 0,
+    "hostname": "0.0.0.0",
+    "port": 0,
+    "status": "INACTIVE",
+    "last_heartbeat": 0,
+    "capacity": 0,
+    "used": 0,
+    "available": 0,
 }
 
 def _heartbeat_to_epoch(value: Any) -> int:
@@ -72,7 +72,7 @@ class DataNodeRegistry:
             self.nodes[node_id]["last_heartbeat"] = now
             self.nodes[node_id]["capacity"] = capacity
             self.nodes[node_id]["used"] = 0
-            self.nodes[node_id]["available"] = capacity - 0
+            self.nodes[node_id]["available"] = capacity
             self.lookup[f"{hostname}:{port}"] = node_id
 
             if mode == 0:
@@ -96,7 +96,7 @@ class DataNodeRegistry:
             cur.execute(
                 """
                 UPDATE dn_table
-                SET dn_status = %s, dn_last_heartbeat = FROM_UNIXTIME(%s)
+                SET dn_status = %s, dn_last_heartbeat = %s
                 WHERE dn_id = %s
                 """,
                 ("ACTIVE", now, node_id),
@@ -141,7 +141,7 @@ class DataNodeRegistry:
                         dn_id, dn_address, dn_port, dn_status,
                         dn_capacity, dn_used, dn_available, dn_last_heartbeat
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, FROM_UNIXTIME(%s))
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     ON DUPLICATE KEY UPDATE
                         dn_address = VALUES(dn_address),
                         dn_port = VALUES(dn_port),

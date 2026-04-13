@@ -4,7 +4,8 @@ def check_tables():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM dn_table")
-    print(cur.fetchall())
+    for row in cur.fetchall():
+        print(row)
     conn.close()
 
 if __name__ == "__main__":
