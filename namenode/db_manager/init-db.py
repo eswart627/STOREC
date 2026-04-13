@@ -17,8 +17,6 @@ def main() -> None:
         with open(sql_file_path, "r", encoding="utf-8") as file:
             sql_script = file.read()
 
-        # Drop the table first so stale test IDs do not survive between runs.
-        cur.execute("DROP TABLE IF EXISTS dn_table")
         cur.execute(sql_script)
         conn.commit()
         print("Database initialized successfully!")
@@ -26,7 +24,9 @@ def main() -> None:
     except FileNotFoundError:
         print(f"Error: SQL file not found at {sql_file_path}")
     except Exception as exc:
+        import sys
         print(f"Error initializing database: {exc}")
+        sys.exit(1)
     finally:
         if conn is not None:
             conn.close()

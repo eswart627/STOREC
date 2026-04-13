@@ -1,13 +1,23 @@
+from re import template
+import ssl
 import threading
 import time
+import uuid
 from datetime import datetime
 from typing import Any , List
 
 from ..db_manager import get_connection
 
 
-NodeRecord = dict[str, Any]
-
+node_template = {
+    "dn_address": "0.0.0.0",
+    "dn_port": 0,
+    "dn_status": "INACTIVE",
+    "dn_last_heartbeat": None,
+    "dn_capacity": 0,
+    "dn_used": 0,
+    "dn_available": 0,
+}
 
 def _heartbeat_to_epoch(value: Any) -> int:
     if value is None:
@@ -28,17 +38,19 @@ def _heartbeat_to_epoch(value: Any) -> int:
 
 class DataNodeRegistry:
     """
-    In-memory view of DataNodes.
+    In memory view of data nodes.
 
-    The DB keeps the persistent source of truth across NameNode restarts,
-    while this registry holds the live runtime state used by RPC handlers.
+    Attributes:
+        nodes: Dictionary of data nodes.
+        lookup: Dictionary of data node lookup by it's address.
+        lock: Lock for thread safety.
     """
     def __init__(self):
         self.nodes = {}
         self.lookup={}
         self.lock = threading.Lock()
 
-    def register(self, node_id: str, hostname: str, port: int, capacity: int) -> None:
+    def register(self, node_id: str|None, hostname: str, port: int, capacity: int,mode:int=0) -> str|None:
         """
         Register a data node.
         
@@ -49,51 +61,23 @@ class DataNodeRegistry:
             capacity: Total storage capacity of the node.
         """
         now = int(time.time())
+        
         with self.lock:
-            existing_node = self.nodes.get(node_id, {})
-            old_address = None
-            if existing_node.get("hostname") and existing_node.get("port"):
-                old_address = f'{existing_node["hostname"]}:{existing_node["port"]}'
-
-            used_bytes = existing_node.get("used", 0)
-            available_bytes = max(capacity - used_bytes, 0)
-            self.nodes[node_id] = {
-                "hostname": hostname,
-                "port": port,
-                "capacity": capacity,
-                "used": used_bytes,
-                "available": available_bytes,
-                "last_heartbeat": now,
-                "status": "ACTIVE",
-            }
-
-            if old_address and old_address != f"{hostname}:{port}":
-                self.lookup.pop(old_address, None)
+            if mode == 0:
+                node_id=str(uuid.uuid4())            
+            self.nodes[node_id] = node_template.copy()
+            self.nodes[node_id]["hostname"] = hostname
+            self.nodes[node_id]["port"] = port
+            self.nodes[node_id]["status"] = "ACTIVE"
+            self.nodes[node_id]["last_heartbeat"] = now
+            self.nodes[node_id]["capacity"] = capacity
+            self.nodes[node_id]["used"] = 0
+            self.nodes[node_id]["available"] = capacity - 0
             self.lookup[f"{hostname}:{port}"] = node_id
 
-            conn = get_connection()
-            cur = conn.cursor()
-            cur.execute(
-                """
-                INSERT INTO dn_table (
-                    dn_id, dn_address, dn_port, dn_status,
-                    dn_capacity, dn_used, dn_available, dn_last_heartbeat
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, FROM_UNIXTIME(%s))
-                ON DUPLICATE KEY UPDATE
-                    dn_address = VALUES(dn_address),
-                    dn_port = VALUES(dn_port),
-                    dn_status = VALUES(dn_status),
-                    dn_capacity = VALUES(dn_capacity),
-                    dn_used = VALUES(dn_used),
-                    dn_available = VALUES(dn_available),
-                    dn_last_heartbeat = VALUES(dn_last_heartbeat)
-                """,
-                (node_id, hostname, port, "ACTIVE", capacity, used_bytes, available_bytes, now),
-            )
-            conn.commit()
-            conn.close()
-    
+            if mode == 0:
+                return node_id
+            return None
     def heartbeat(self, node_id: str) -> str | None:
         """
         Update the heartbeat timestamp for an already registered DataNode.
@@ -121,7 +105,7 @@ class DataNodeRegistry:
             conn.close()
         return None
 
-    def list_nodes(self) -> dict[str, NodeRecord]:
+    def list_nodes(self) -> dict[str,node_template]:
         with self.lock:
             return dict(self.nodes)
     
