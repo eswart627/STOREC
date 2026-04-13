@@ -1,10 +1,10 @@
-from re import template
-import ssl
+from platform import node
 import threading
 import time
 import uuid
 from datetime import datetime
 from typing import Any , List
+from proto import common_pb2
 
 from ..db_manager import get_connection
 
@@ -17,6 +17,7 @@ node_template = {
     "capacity": 0,
     "used": 0,
     "available": 0,
+    "assigned": False
 }
 
 def _heartbeat_to_epoch(value: Any) -> int:
@@ -178,6 +179,7 @@ class DataNodeRegistry:
             """)
             rows = cur.fetchall()
             for row in rows:
+                self.nodes[row[0]] = node_template.copy()
                 self.nodes[row[0]] = {
                     "hostname": row[1],
                     "port": row[2],
@@ -193,3 +195,9 @@ class DataNodeRegistry:
                 conn.commit()
             conn.close()
             return len(rows)
+
+    def to_node(self, node_id):
+        host_name=self.nodes[node_id]['hostname']
+        port=self.nodes[node_id]['port']
+        res=common_pb2.NodeId(node_id=node_id,node=common_pb2.Node(hostname=host_name,port=port))
+        return res

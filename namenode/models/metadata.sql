@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS metadata (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_id TEXT NOT NULL,
+    block_id TEXT NOT NULL,
+    node_id TEXT NOT NULL
+);

@@ -2,6 +2,7 @@
 import grpc
 import os
 import time
+import math
 import datetime
 import random
 import pytz  # Add this import for timezone handling
@@ -15,6 +16,8 @@ from proto import common_pb2
 
 #from .heartbeat_manager import HeartbeatManager
 from .health_checker import HealthChecker
+from db_manager import get_connection
+from .allocation_manager import AllocationManager
 
 class NameNodeService(
     namenode_pb2_grpc.NameNodeServiceServicer
@@ -31,6 +34,7 @@ class NameNodeService(
         self.registry = registry
         self.logger = logger
         #self.heartbeat_manager = HeartbeatManager(self.logger,self.registry)
+        self.allocation_manager = AllocationManager(self.registry, self.logger)
     def RegisterDataNode(self, request:namenode_pb2.RegisterRequest, context)->namenode_pb2.RegisterResponse:
         """
         Register a data node with the name node.
@@ -121,43 +125,118 @@ class NameNodeService(
             )
         )
         
-    def AllocateStripe(self, request:namenode_pb2.AllocateStripeRequest, context)->namenode_pb2.AllocateStripeResponse:
+    def AllocateBlocks(self, request:namenode_pb2.AllocateBlocksRequest, context)->namenode_pb2.AllocateBlocksResponse:
         """
-        Under Maintainence
+        Allocate blocks for a file.
         Args:
-            request: AllocateStripeRequest(file_name:str,policy(data_shards:int,parity_shards:int,stripe_size:int))
+            request: AllocateBlocksRequest(file_details,stripe_size,data_blocks_k,parity_blocks_m)
             context: grpc.ServicerContext
         
         Returns:
-            AllocateStripeResponse()
+            AllocateBlocksResponse(block_groups:list[BlockGroups])
         """
-        required_size:int=request.policy.stripe_size
-        node:dict = random.sample([node for node in self.registry.nodes if self.registry.nodes[node]["capacity"] >= required_size], 1)[0]
+        file_details=request.file_details
+        no_of_stripes=math.ceil(file_details.file_size / request.stripe_size)
+        block_size=math.ceil(request.stripe_size / request.data_blocks_k)
+        no_of_shards=request.data_blocks_k+request.parity_blocks_m
+        
+        block_groups=self.allocation_manager.allocate( file_details=file_details,no_of_stripes=no_of_stripes,block_size=block_size,no_of_shards=no_of_shards)
+        return namenode_pb2.AllocateBlocksResponse(block_groups=block_groups)
 
-
-        return namenode_pb2.AllocateStripeResponse(
-            status=common_pb2.Status(
-                success=True
-            )
-            )
-
-    def ReportShard(self, request:namenode_pb2.ReportShardRequest, context)->namenode_pb2.ReportShardResponse:
+    def commit_file(self, request, context):
         """
-        Under maintenance
+        Commit file to registry.
+        
         Args:
-            request: ReportShardRequest()
-            context: grpc.ServicerContext
-        
+            request: CommitFileRequest object.
+            context: gRPC context.
+            
         Returns:
-            ReportShardResponse()
-        
+            CommitFileResponse object.
         """
-        return namenode_pb2.ReportShardResponse(
+
+        self.logger.log("COMMIT_FILE", f"Committing file {file_name}")
+        
+        file_name=request.file_details.file_name
+        file_size=request.file_details.file_size/1024 #kb
+        conn=get_connection()
+        cur=conn.cursor()
+        cur.execute("SELECT id FROM metadata ORDER BY id DESC LIMIT 1")
+        metadata_id = cur.fetchone()
+        if metadata_id:
+            metadata_id = metadata_id[0]
+        else:
+            metadata_id = 1
+
+        for i in range(request.total_blocks):
+            block_id=request.block_ids[i]
+            self.logger.log("COMMIT_FILE", f"Committing block {block_id} for file {file_name}")
+            self.allocation_manager.commit_block(file_name, block_id,cur)
+        cur.execute("INSERT into files(file_name, size, block_count, start_index) values(%s, %s, %s, %s)", (file_name, file_size, request.total_blocks, metadata_id))
+        conn.commit()
+        return namenode_pb2.CommitFileResponse(
             status=common_pb2.Status(
-                success=True
+                success=True,
+                message="File committed successfully"
+            )
+        )
+    
+    def delete_file(self, request, context):
+        """
+        Delete file from registry.
+        
+        Args:
+            request: DeleteFileRequest object.
+            context: gRPC context.
+            
+        Returns:
+            DeleteFileResponse object.
+        """
+        self.logger.log("DELETE_FILE", f"Deleting file {request.file_name}")
+        return namenode_pb2.DeleteFileResponse(
+            status=common_pb2.Status(
+                success=True,
+                message="File deleted successfully"
             )
         )
 
+    def list_files(self, request, context):
+        """
+        List files from registry.
+        
+        Args:
+            request: ListFilesRequest object.
+            context: gRPC context.
+            
+        Returns:
+            ListFilesResponse object.
+        """
+        self.logger.log("LIST_FILES", "Listing files")
+        return namenode_pb2.ListFilesResponse(
+            status=common_pb2.Status(
+                success=True,
+                message="Files listed successfully"
+            )
+        )
+
+    def get_file_metadata(self, request, context):
+        """
+        Get file metadata from registry.
+        
+        Args:
+            request: GetFileMetadataRequest object.
+            context: gRPC context.
+            
+        Returns:
+            GetFileMetadataResponse object.
+        """
+        self.logger.log("GET_FILE_METADATA", f"Getting metadata for file {request.file_name}")
+        return namenode_pb2.GetFileMetadataResponse(
+            status=common_pb2.Status(
+                success=True,
+                message="Metadata retrieved successfully"
+            )
+        )
 class NameNodeServer:
     """
     Name node server.
