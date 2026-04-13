@@ -13,7 +13,7 @@ from proto import namenode_pb2
 from proto import namenode_pb2_grpc
 from proto import common_pb2
 
-from .heartbeat_manager import HeartbeatManager
+#from .heartbeat_manager import HeartbeatManager
 from .health_checker import HealthChecker
 
 class NameNodeService(

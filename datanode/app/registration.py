@@ -1,15 +1,16 @@
 import time
 import datetime
 import os
-import pytz  # Add this import for timezone handling
+import pytz
 
 from proto import common_pb2
 from proto import namenode_pb2
 
-# This class is to manage the data node's identity (node_id) and persist it across restarts
+
+# FIXED: storage path now depends on port
 class DataNodeIdentity:
-    def __init__(self, storage_path="/data/node_id.txt"):
-        self.storage_path = storage_path
+    def __init__(self, port, storage_dir="./data"):
+        self.storage_path = os.path.join(storage_dir, f"node_id_{port}.txt")
 
     def get_id(self):
         if os.path.exists(self.storage_path):
@@ -28,32 +29,50 @@ class RegistrationManager:
         self.rpc = rpc_client
         self.config = config
         self.logger = logger
+
     def register(self):
-        identity_store = DataNodeIdentity()
+        # FIX: pass port → unique identity per datanode
+        identity_store = DataNodeIdentity(port=self.config.port)
+
         existing_id = identity_store.get_id()
         
         node = common_pb2.Node(
-            hostname = self.config.hostname,
-            port = self.config.port
+            hostname=self.config.hostname,
+            port=self.config.port
         )
+
         request = namenode_pb2.RegisterRequest(
-            node = node,
+            node=node,
             node_id=existing_id if existing_id else "",
-            capacity_bytes = self.config.capacity_bytes
+            capacity_bytes=self.config.capacity_bytes
         )
+
         while True:
             try:
+                print("DEBUG: sending node_id =", existing_id)  # optional debug
+
                 response = self.rpc.stub.RegisterDataNode(request)
+
                 if response.status.success:
-                    # Store the ID returned by NameNode (works for both New and Re-registration)
                     assigned_id = response.node_id
+
+                    # save unique ID per node
                     identity_store.save_id(assigned_id)
-                    self.config.node_id = assigned_id # Update config in memory
+
+                    self.config.node_id = assigned_id
                 
-                    current_time = datetime.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%H:%M:%S")
-                    self.logger.log("REGISTER_SUCCESS", f"ID: {assigned_id} at {current_time}")
+                    current_time = datetime.datetime.now(
+                        pytz.timezone("Asia/Kolkata")
+                    ).strftime("%H:%M:%S")
+
+                    self.logger.log(
+                        "REGISTER_SUCCESS",
+                        f"ID: {assigned_id} at {current_time}"
+                    )
+
                     return assigned_id
+
             except Exception as e:
-                print(f"!!! REGISTRATION FAILED: {e}", flush=True) # ADD THIS
+                print(f"!!! REGISTRATION FAILED: {e}", flush=True)
                 self.logger.log("REGISTER_FAILED", str(e))
                 time.sleep(5)
