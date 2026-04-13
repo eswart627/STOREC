@@ -1,0 +1,143 @@
+syntax = "proto3";
+
+package proto_skeleton;
+
+// high level overview
+/*
+ 1.cluster bootstrap (DN registration)
+ 2.steady-state health maintainence
+ 3.file upload, encoding and storage
+ 4.file retrieval and deletion (read/delete path)
+ */
+
+// Execution stages
+/*
+ 1. cluster bootstrap
+
+ DN
+ NRPC: initialize_storage_directory() == load configs and all
+ RPC CALL: register_with_namenode() => RPC: RegisterDataNode
+ (node_id, address, port, capacity)
+ NN
+ RPC RUN: RegisterDataNode()
+ NRPC:  store_node_record()
+ mark_node_alive()
+ update_cluster_state()
+ RPC RESPONSE: RegisterDataNodeResponse
+ */
+
+/*
+ 2. steady-state mechanism
+
+ DN
+ NRPC: (loop this thing)start_heartbeat() => calls to Heartbeat() RPC
+ entire heartbeat mechanism and fault tolerance
+ NN
+ RPC CALL: Heartbeat()
+ for every call
+ NRPC: mark_node_alive()
+ refresh_last_seen_timestamp()
+ if in case heartbeat misses: mark_node_dead()
+ */
+
+/*
+ 3. File upload, encoding and storage
+
+ Client
+ determine BLOCK_SIZE, DATA_BLOCKS(k), PARITY_BLOCKS(m)
+ NRPC: upload_file()
+ split_file_into_stripes() ==> stripe_size = k x block_size
+ num_stripes = ceil(file_size / stripe_size)
+ for each stripe:
+ process_stripe()
+ chunk_stripe()
+ encode_stripe()
+
+ RPC CALL: AllocateBlocks()
+ (filename, file_size, stripe_size, data_blocks, parity_blocks)
+ NN
+ RPC RUN: AllocateBlocks()
+ get_avaliable_nodes()
+ check_node_capacity()
+ select_datanode()
+ generate_block_ids()
+ calculate_stripes()
+ RPC RESPONSE: ALlocateBlocksResponse
+ parallel transmission:
+ send_block() ====> variation implementation
+ => RPC CALL: WriteBlock(block_id, data)
+ DN
+ RPC CALL RUN: WrtieBlock()
+ write_block_to_disk()
+ flush_to_disk()
+ update_available_space()
+ // raw byte arrays stored
+
+ Client ACK aggregation:
+ collect_acks()
+
+ file commit
+ RPC: COMMIT FILE
+ NN
+ RPC CALL RUN: CommitFile()
+ validate_file_name()
+ store_file_metadata()
+ persist_metadata()
+ */
+
+/*
+ 4. File retrieval and Reconstruction
+ Metadata lookup:
+ Client
+ NRPC: download_file()
+ RPC CALL: GetFileMetadata()
+ NN
+ RPC RUN: GetFileMEtadata()
+ lookup_file_table()
+
+ parallel block reads:
+ parallel_read_pipeline()
+ recieve_block() (per block)
+ reed-solomon-reconstruction
+ file assembly: merge_stripes()
+ validate_file_integrity()
+
+ file deletion: (optional later)
+ */
+
+
+/*
+ upload_file
+ read_file_from_disk
+ split_file_into_stripes
+ AllocateBlocks (RPC)
+ for each stripe:
+ process_stripe
+ chunk_stripes
+ encode_stripe
+ parallel_write_pipeline
+ send_block
+ collect_acks
+ CommitFile (RPC)
+ log_metrics
+ close_connections
+
+ download_file
+ GetFileMetadata (RPC)
+ parallel_read_pipeline
+ recieve_block
+ decode_stripe (if needed)
+ merge_stripes
+ reconstruct_file
+ validate_file_integrity
+ write_file_from_disk
+ log_metrics
+ close_connections
+
+ delete_file
+ DeleteFile (RPC)
+ DeleteBlock (RPC per block)
+ log_metrics
+ close_connections
+
+ */

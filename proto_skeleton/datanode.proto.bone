@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package proto_skeleton;
+
+// all the comm it does:
+// register, heartbeat for namenode registy
+// gives block status to client for read/write
+// write, delete as per client request
+// sends ACK to client after storing the data
+
+// app level func
+/*
+ initialize_storage_directory()
+ load_configuration()
+ scan_existing_blocks() ===> optional
+
+ register_with_namenode()
+ start_heartbeat_loop()
+ send_heartbeat()
+ update_available_space()
+
+ write_block_to_disk()
+ flush_to_disk()
+ read_block_from_disk()
+ delete_block_from_disk()
+
+ handle_disk_error()
+ cleanup_temp_file()
+ verify_block_integrity()
+ */
+
+// rpc methods
+/*
+ WriteBlock
+ ReadBlock
+ DeleteBlock
+ */
+
+ rpc WriteBlock(WriteBlockRequest) returns (WriteBlockResponse);
+ rpc ReadBlock(ReadBlockRequest) returns (ReadBlockResponse);
+ rpc DeleteBlock(DeleteBlockRequest) returns (DeleteBlockResponse);
+ 
