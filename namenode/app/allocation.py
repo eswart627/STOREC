@@ -1,11 +1,10 @@
 import uuid
 import threading
 from typing import List, Tuple
-import common_pb2
-import namenode_pb2
+from proto import common_pb2
+from proto import namenode_pb2
 from .registry import DataNodeRegistry
 from .logger import Logger
-from db_manager import get_connection
 
 class AllocationManager:
     """
@@ -43,12 +42,25 @@ class AllocationManager:
             list[str] - The list of available node IDs
         """
         available_nodes: List[str] = []
+        self.logger.log("DEBUG", f"Looking for nodes with block_size={block_size}")
+        self.logger.log("DEBUG", f"Total nodes in registry: {len(self.registry.nodes)}")
+        
         for node_id, node_data in self.registry.nodes.items():
-            if node_data['status'] == "ACTIVE" and not node_data.get('assigned', False) and node_data['available'] >= block_size:
+            status_ok = node_data['status'] == "ACTIVE"
+            not_assigned = not node_data.get('assigned', False)
+            enough_space = node_data['available'] >= block_size
+            
+            self.logger.log("DEBUG", f"Node {node_id}: status={node_data['status']}, assigned={node_data.get('assigned', False)}, available={node_data['available']}")
+            self.logger.log("DEBUG", f"Node {node_id}: status_ok={status_ok}, not_assigned={not_assigned}, enough_space={enough_space}")
+            
+            if status_ok and not_assigned and enough_space:
                 available_nodes.append(node_id)
+                self.logger.log("DEBUG", f"Node {node_id} added to available list")
+        
+        self.logger.log("DEBUG", f"Available nodes count: {len(available_nodes)}")
         return available_nodes
 
-    def allocate(self, file_details,no_of_stripes,no_of_shards,block_size)->List[namenode_pb2.BlockGroup]:
+    def allocate(self, file_details,no_of_stripes,no_of_shards,block_size)->List[common_pb2.BlockGroups]:
         """
         Allocate blocks to data nodes.
         
@@ -90,19 +102,16 @@ class AllocationManager:
 
             self.cursor = start_cursor
         
-        block_groups: List[namenode_pb2.BlockGroup] = []
+        block_groups: List[common_pb2.BlockGroups] = []
 
         for i, stripe in enumerate(reservations):
             stripe_id = f"{file_details.file_name}_{i}"
-            stripe_nodes: List[common_pb2.Placement] = []
+            stripe_placements: List[common_pb2.Placement] = []
 
             for block_id, node_id in stripe:
-                node_proto = common_pb2.NodeId(
-                    node_id=node_id,
-                    node=self.registry.to_node(node_id)
-                )
+                node_proto = self.registry.to_node(node_id)
 
-                stripe_nodes.append(
+                stripe_placements.append(
                     common_pb2.Placement(
                         block_id=block_id,
                         node=node_proto
@@ -110,9 +119,9 @@ class AllocationManager:
                 )
 
             block_groups.append(
-                namenode_pb2.BlockGroup(
+                common_pb2.BlockGroups(
                     stripe_id=stripe_id,
-                    nodes=stripe_nodes
+                    placement=stripe_placements
                 )
             )
 
@@ -132,6 +141,22 @@ class AllocationManager:
         if block_id in self.allocations:
             node_id = self.allocations[block_id]
             curr.execute("INSERT INTO metadata (file_id, block_id, node_id) VALUES (%s, %s, %s)", (file_name, block_id, node_id))
+            self.registry.nodes[node_id]['assigned'] = False
             del self.allocations[block_id]
+    def release_nodes(self,blocks:List[str])->None:
+        """
+        Rollback a block allocation.
+        
+        args:
+            block_id: str - The ID of the block
+            
+        returns:
+            None
+        """
+        for block_id in blocks:
+            if block_id in self.allocations:
+                node_id = self.allocations[block_id]
+                self.registry.nodes[node_id]['assigned'] = False
+                del self.allocations[block_id]
         
     

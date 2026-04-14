@@ -46,3 +46,17 @@ To check DB:
 
 To check the lookups ( not when namenode is in running state )
   -> python -m namenode.app.show_lookups.py
+
+
+To check the allocation logic:
+    get the db up
+    py -m namenode.db_manager.init_db
+    py -m namenode.db_manager.fakenode (inserts fakenodes for testing purposes)
+    py -m namenode.db_manager.check_tables (to check the tables)
+    namenode.app.registry: Line 190: change status to "ACTIVE"
+    py -m namenode.app.main 1
+
+    py -m mini_client.client (Emulates writing)
+    py -m mini_client.delete_client (Emulates deleting)
+
+    (py -m namenode.db_manager.nuke) [Clears the DB if you want without having to kill docker image]    

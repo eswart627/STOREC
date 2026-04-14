@@ -1,0 +1,53 @@
+Commit no(13):
+    NEW: mini_client/client.py
+        Needed for testing NameNode allocation and commit functionality
+        test_namenode_methods(host='localhost', port=50051)
+            use case: Emulates file writing by requesting block allocation and committing file
+    
+    NEW: mini_client/delete_client.py
+        Needed for testing NameNode delete functionality
+        delete_file(host='10.10.20.60', port=50051, file_name='test_file.txt')
+            use case: Emulates file deletion by sending delete request to NameNode
+    
+    namenode/app/allocation.py
+        get_available_nodes(self, block_size)
+            use case: Finds available DataNodes with sufficient space and active status
+        allocate(self, file_details, no_of_stripes, no_of_shards, block_size)
+            use case: Allocates blocks across DataNodes for file storage using round-robin
+        commit_block(self, file_name, block_id, cur)
+            use case: Commits block allocation to database and releases node assignment
+        release_nodes(self, blocks: List[str])
+            use case: Rolls back block allocations and frees up DataNode assignments
+    
+    namenode/app/main.py
+        main(flag: int=0)
+            use case: Modified main function to accept flag for running in test mode or prod mode
+    
+    namenode/app/server.py
+        CommitFile(self, request, context)
+            use case: Commits file metadata to database with error handling and rollback
+        DeleteFile(self, request, context)
+            use case: Deletes file and metadata from database with proper cleanup
+    
+    
+    namenode/db_manager/check_tables.py
+        check_tables()
+            use case: Enhanced to display all three tables (dn_table, file_table, metadata)
+    
+    NEW: namenode/db_manager/fakenode.py
+        Needed for inserting test DataNodes for development
+        insert_fake_datanodes()
+            use case: Creates 10 fake DataNode entries in dn_table for testing
+    
+    namenode/db_manager/init-db.py
+        main()
+            use case: Modified to initialize all three SQL tables (dn_table, file_table, metadata)
+    
+    NEW: namenode/db_manager/nuke.py
+        Needed for clearing database during development
+        clear_tables()
+            use case: Clears all data from dn_table, file_table, and metadata tables
+    
+    namenode/models/metadata.sql
+        Updated id field from AUTOINCREMENT to AUTO_INCREMENT
+            use case: Fixed MySQL syntax for auto-increment primary key

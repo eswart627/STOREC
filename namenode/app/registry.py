@@ -188,6 +188,7 @@ class DataNodeRegistry:
                     "available": row[6],
                     "last_heartbeat": _heartbeat_to_epoch(row[7]),
                     "status": "INACTIVE",
+                    "assigned": False,
                 }
                 self.lookup[f"{row[1]}:{row[2]}"] = row[0]
             if rows:

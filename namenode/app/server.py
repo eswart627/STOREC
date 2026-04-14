@@ -16,8 +16,8 @@ from proto import common_pb2
 
 #from .heartbeat_manager import HeartbeatManager
 from .health_checker import HealthChecker
-from db_manager import get_connection
-from .allocation_manager import AllocationManager
+from ..db_manager import get_connection
+from .allocation import AllocationManager
 
 class NameNodeService(
     namenode_pb2_grpc.NameNodeServiceServicer
@@ -143,7 +143,7 @@ class NameNodeService(
         block_groups=self.allocation_manager.allocate( file_details=file_details,no_of_stripes=no_of_stripes,block_size=block_size,no_of_shards=no_of_shards)
         return namenode_pb2.AllocateBlocksResponse(block_groups=block_groups)
 
-    def commit_file(self, request, context):
+    def CommitFile(self, request, context):
         """
         Commit file to registry.
         
@@ -155,10 +155,10 @@ class NameNodeService(
             CommitFileResponse object.
         """
 
-        self.logger.log("COMMIT_FILE", f"Committing file {file_name}")
-        
         file_name=request.file_details.file_name
+        self.logger.log("COMMIT_FILE", f"Committing file {file_name}")
         file_size=request.file_details.file_size/1024 #kb
+        
         conn=get_connection()
         cur=conn.cursor()
         cur.execute("SELECT id FROM metadata ORDER BY id DESC LIMIT 1")
@@ -171,8 +171,30 @@ class NameNodeService(
         for i in range(request.total_blocks):
             block_id=request.block_ids[i]
             self.logger.log("COMMIT_FILE", f"Committing block {block_id} for file {file_name}")
-            self.allocation_manager.commit_block(file_name, block_id,cur)
-        cur.execute("INSERT into files(file_name, size, block_count, start_index) values(%s, %s, %s, %s)", (file_name, file_size, request.total_blocks, metadata_id))
+            try:
+                self.allocation_manager.commit_block(file_name, block_id,cur)
+            except Exception as e:
+                self.logger.log("COMMIT_FILE", f"Failed to commit block {block_id} for file {file_name}: {e}")
+                conn.rollback()
+                self.allocation_manager.release_nodes(request.block_ids)
+                return namenode_pb2.CommitFileResponse(
+                    status=common_pb2.Status(
+                        success=False,
+                        message=f"Failed to commit block {block_id} for file {file_name}: {e}"
+                    )
+                )
+        try:
+            cur.execute("INSERT into file_table(file_name, size, block_count, start_index) values(%s, %s, %s, %s)", (file_name, file_size, request.total_blocks, metadata_id+1))
+        except Exception as e:
+            self.logger.log("COMMIT_FILE", f"Failed to commit file {file_name}: {e}")
+            conn.rollback()
+            self.allocation_manager.release_nodes(request.block_ids)
+            return namenode_pb2.CommitFileResponse(
+                status=common_pb2.Status(
+                    success=False,
+                    message=f"Failed to commit file {file_name}: {e}"
+                )
+            )
         conn.commit()
         return namenode_pb2.CommitFileResponse(
             status=common_pb2.Status(
@@ -181,7 +203,7 @@ class NameNodeService(
             )
         )
     
-    def delete_file(self, request, context):
+    def DeleteFile(self, request, context):
         """
         Delete file from registry.
         
@@ -191,8 +213,38 @@ class NameNodeService(
             
         Returns:
             DeleteFileResponse object.
+
         """
-        self.logger.log("DELETE_FILE", f"Deleting file {request.file_name}")
+        
+        conn= get_connection()
+        cur=conn.cursor()
+        try:
+            cur.execute("DELETE FROM metadata WHERE file_id = %s", (request.file_details.file_name,))
+            cur.execute("SELECT MAX(id) FROM metadata")
+            max_id = cur.fetchone()[0]
+            if max_id is None:
+                max_id = 0
+            cur.execute(f"ALTER TABLE metadata AUTO_INCREMENT = {max_id + 1}")
+        except Exception as e:
+            self.logger.log("DELETE_FILE", f"Failed to delete file {request.file_details.file_name}: {e}")
+            return namenode_pb2.DeleteFileResponse(
+                status=common_pb2.Status(
+                    success=False,
+                    message=f"Failed to delete file {request.file_details.file_name}: {e}"
+                )
+            )
+        try:
+            cur.execute("DELETE FROM file_table WHERE file_name = %s", (request.file_details.file_name,))
+        except Exception as e:
+            self.logger.log("DELETE_FILE", f"Failed to delete file {request.file_details.file_name}: {e}")
+            return namenode_pb2.DeleteFileResponse(
+                status=common_pb2.Status(
+                    success=False,
+                    message=f"Failed to delete file {request.file_details.file_name}: {e}"
+                )
+            )
+        conn.commit()
+        self.logger.log("DELETE_FILE", f"Deleting file {request.file_details.file_name}")
         return namenode_pb2.DeleteFileResponse(
             status=common_pb2.Status(
                 success=True,
@@ -247,7 +299,7 @@ class NameNodeServer:
         logger: Logger object.
         server: gRPC server.
     """
-    def __init__(self, config, registry, logger):
+    def __init__(self, config, registry, logger,flag=0):
 
         self.config = config
 
@@ -255,6 +307,7 @@ class NameNodeServer:
 
         self.logger = logger
 
+        self.test = flag
         self.server = grpc.server(
             ThreadPoolExecutor(
                 max_workers=config.worker_threads
@@ -270,11 +323,14 @@ class NameNodeServer:
         
         print(f"DEBUG: NameNode binding to {address}", flush=True)
         self.server.add_insecure_port(address)
-        self.health_checker = HealthChecker(
-            self.registry, 
-            config.health_check_interval,
-            self.logger
-        )
+        if not self.test:
+            self.health_checker = HealthChecker(
+                self.registry, 
+                config.health_check_interval,
+                self.logger
+                 )
+        else:
+            print("DEBUG: Health checker disabled", flush=True)
 
     def start(self)->None:
         """
@@ -284,7 +340,8 @@ class NameNodeServer:
         self.server.start()
 
         # Start health checker
-        self.health_checker.start()
+        if not self.test:
+            self.health_checker.start()
 
         current_time = datetime.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%H:%M")  # Format time as HH:MM in IST
         self.logger.log(
@@ -302,7 +359,8 @@ class NameNodeServer:
         print(f"Stopping NameNode server (grace period: {grace_period}s)...", flush=True)
         
         # 1. Stop background processes first
-        self.health_checker.stop()
+        if not self.test:
+            self.health_checker.stop()
         
         # 2. Persist the registry state
         self.registry.save_state()

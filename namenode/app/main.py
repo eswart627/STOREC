@@ -21,7 +21,7 @@ def signal_handler(signum: int, frame: FrameType | None) -> None:
     print("NameNode stopped gracefully.", flush=True)
     sys.exit(0)
 
-def main() -> None:
+def main(flag:int=0) -> None:
     global server
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -48,6 +48,7 @@ def main() -> None:
         config,
         registry,
         logger,
+        flag
     )
 
     print("Starting NameNode server", flush=True)  # Debug print to indicate server startup
@@ -55,4 +56,8 @@ def main() -> None:
     server.start()
 
 if __name__ == "__main__":
-    main()
+    
+    flag = 0
+    if len(sys.argv) > 1:
+        flag = int(sys.argv[1])
+    main(flag)
