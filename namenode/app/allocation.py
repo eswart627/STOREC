@@ -1,3 +1,4 @@
+from tkinter import W
 import uuid
 import threading
 from typing import List, Tuple
@@ -14,7 +15,7 @@ class AllocationManager:
         registry: DataNodeRegistry - The registry of data nodes
         logger: Logger - The logger for logging allocation events
     """
-    def __init__(self,registry:DataNodeRegistry, logger:Logger):
+    def __init__(self,registry:DataNodeRegistry, logger:Logger, data_blocks:int=6, parity_blocks:int=3):
         """
         Initialize the allocation manager.
         
@@ -30,7 +31,11 @@ class AllocationManager:
         self.logger=logger
         self.lock = threading.Lock()
         self.cursor = 0
-
+        self.data_blocks=data_blocks
+        self.parity_blocks=parity_blocks
+    def set_policy(self,data_blocks:int,parity_blocks:int):
+        self.data_blocks=data_blocks
+        self.parity_blocks=parity_blocks
     def get_nodes(self,block_size)->List[str]:
         """
         Get the list of available nodes for allocation.

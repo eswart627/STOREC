@@ -139,7 +139,7 @@ class NameNodeService(
         no_of_stripes=math.ceil(file_details.file_size / request.stripe_size)
         block_size=math.ceil(request.stripe_size / request.data_blocks_k)
         no_of_shards=request.data_blocks_k+request.parity_blocks_m
-        
+        self.allocation_manager.set_policy(request.data_blocks_k,request.parity_blocks_m)
         block_groups=self.allocation_manager.allocate( file_details=file_details,no_of_stripes=no_of_stripes,block_size=block_size,no_of_shards=no_of_shards)
         return namenode_pb2.AllocateBlocksResponse(block_groups=block_groups)
 
@@ -263,7 +263,13 @@ class NameNodeService(
         Returns:
             ListFilesResponse object.
         """
-        self.logger.log("LIST_FILES", "Listing files")
+        self.logger.log("LIST_FILES", "Listing files...\n")
+        conn=get_connection()
+        cur=conn.cursor()
+        cur.execute("SELECT * FROM file_table")
+        files=cur.fetchall()
+        for i,row in enumerate(files):
+            self.logger.log(f"File_{i}", f"Files: {row}")
         return namenode_pb2.ListFilesResponse(
             status=common_pb2.Status(
                 success=True,
@@ -271,7 +277,7 @@ class NameNodeService(
             )
         )
 
-    def get_file_metadata(self, request, context):
+    def GetFileMetadata(self, request, context):
         """
         Get file metadata from registry.
         
@@ -282,12 +288,43 @@ class NameNodeService(
         Returns:
             GetFileMetadataResponse object.
         """
-        self.logger.log("GET_FILE_METADATA", f"Getting metadata for file {request.file_name}")
+
+        self.logger.log("GET_FILE_METADATA", f"Getting metadata for file {request.file_details.file_name}")
+        conn=get_connection()
+        cur=conn.cursor()
+        cur.execute("SELECT block_id, node_id FROM metadata WHERE file_id=%s", (request.file_details.file_name,))
+        file=cur.fetchall()
+        total_blocks = len(file)
+        blocks_per_stripe = self.allocation_manager.data_blocks + self.allocation_manager.parity_blocks
+        no_of_stripes = total_blocks // blocks_per_stripe if blocks_per_stripe > 0 else 0
+        stripe_size = request.file_details.file_size // no_of_stripes if no_of_stripes > 0 else 0
+        block_groups:List[common_pb2.BlockGroups]=[]
+        stripe_count=0
+        block_count=0
+        while block_count < len(file):
+            stripe_id = f"{request.file_details.file_name}_{stripe_count}"
+            placements:List[common_pb2.Placement]=[]
+            blocks_in_current_stripe = 0
+            
+            while blocks_in_current_stripe < blocks_per_stripe and block_count < len(file):
+                placements.append(common_pb2.Placement(
+                    block_id=file[block_count][0],
+                    node=self.registry.to_node(file[block_count][1])
+                ))
+                block_count += 1  
+                blocks_in_current_stripe += 1
+
+            block_groups.append(common_pb2.BlockGroups(
+                stripe_id=stripe_id,
+                placement=placements
+            ))
+            stripe_count += 1
         return namenode_pb2.GetFileMetadataResponse(
-            status=common_pb2.Status(
-                success=True,
-                message="Metadata retrieved successfully"
-            )
+            file_details=request.file_details,
+            stripe_size=stripe_size,
+            data_blocks_k=self.allocation_manager.data_blocks,
+            parity_blocks_m=self.allocation_manager.parity_blocks,
+            block_groups=block_groups
         )
 class NameNodeServer:
     """
