@@ -1,9 +1,7 @@
-from tkinter import W
 import uuid
 import threading
 from typing import List, Tuple
 from proto import common_pb2
-from proto import namenode_pb2
 from .registry import DataNodeRegistry
 from .logger import Logger
 
@@ -33,10 +31,11 @@ class AllocationManager:
         self.cursor = 0
         self.data_blocks=data_blocks
         self.parity_blocks=parity_blocks
+        self.block_size=0
     def set_policy(self,data_blocks:int,parity_blocks:int):
         self.data_blocks=data_blocks
         self.parity_blocks=parity_blocks
-    def get_nodes(self,block_size)->List[str]:
+    def get_nodes(self)->List[str]:
         """
         Get the list of available nodes for allocation.
         
@@ -47,13 +46,13 @@ class AllocationManager:
             list[str] - The list of available node IDs
         """
         available_nodes: List[str] = []
-        self.logger.log("DEBUG", f"Looking for nodes with block_size={block_size}")
+        self.logger.log("DEBUG", f"Looking for nodes with block_size={self.block_size}")
         self.logger.log("DEBUG", f"Total nodes in registry: {len(self.registry.nodes)}")
         
         for node_id, node_data in self.registry.nodes.items():
             status_ok = node_data['status'] == "ACTIVE"
             not_assigned = not node_data.get('assigned', False)
-            enough_space = node_data['available'] >= block_size
+            enough_space = node_data['available'] >= self.block_size
             
             self.logger.log("DEBUG", f"Node {node_id}: status={node_data['status']}, assigned={node_data.get('assigned', False)}, available={node_data['available']}")
             self.logger.log("DEBUG", f"Node {node_id}: status_ok={status_ok}, not_assigned={not_assigned}, enough_space={enough_space}")
@@ -65,7 +64,7 @@ class AllocationManager:
         self.logger.log("DEBUG", f"Available nodes count: {len(available_nodes)}")
         return available_nodes
 
-    def allocate(self, file_details,no_of_stripes,no_of_shards,block_size)->List[common_pb2.BlockGroups]:
+    def allocate(self, file_details,no_of_stripes,no_of_shards)->List[common_pb2.BlockGroups]:
         """
         Allocate blocks to data nodes.
         
@@ -79,7 +78,7 @@ class AllocationManager:
             list[namenode_pb2.BlockGroup] - The list of block groups
         """
         with self.lock:
-            available_nodes = self.get_nodes(block_size)
+            available_nodes = self.get_nodes()
             if not available_nodes:
                 raise Exception("No available nodes to allocate blocks")
 
@@ -97,7 +96,7 @@ class AllocationManager:
 
                     # Reserve resources
                     self.allocations[block_id] = node_id
-                    self.registry.nodes[node_id]['available'] -= block_size
+                    self.registry.nodes[node_id]['available'] -= self.block_size
                     self.registry.nodes[node_id]['assigned'] = True
 
                     stripe_reservations.append((block_id, node_id))
@@ -143,11 +142,12 @@ class AllocationManager:
         returns:
             None
         """
-        if block_id in self.allocations:
-            node_id = self.allocations[block_id]
-            curr.execute("INSERT INTO metadata (file_id, block_id, node_id) VALUES (%s, %s, %s)", (file_name, block_id, node_id))
-            self.registry.nodes[node_id]['assigned'] = False
-            del self.allocations[block_id]
+        with self.lock:
+            if block_id in self.allocations:
+                node_id = self.allocations[block_id]
+                curr.execute("INSERT INTO metadata_table (file_id, block_id,size, node_id) VALUES (%s, %s, %s, %s)", (file_name, block_id, self.block_size, node_id))
+                self.registry.nodes[node_id]['assigned'] = False
+                del self.allocations[block_id]
     def release_nodes(self,blocks:List[str])->None:
         """
         Rollback a block allocation.
@@ -163,5 +163,35 @@ class AllocationManager:
                 node_id = self.allocations[block_id]
                 self.registry.nodes[node_id]['assigned'] = False
                 del self.allocations[block_id]
+    def delete_blocks(self,blocks,cur):
+        with self.lock:
+            for block in blocks:
+                block_id, node_id,size = block
+            
+                self.registry.nodes[node_id]['used'] -= size
+                self.registry.nodes[node_id]['available'] += size
+            
+    def send_metadata(self, file_name:str,file,blocks_per_stripe:int):
+        block_groups:List[common_pb2.BlockGroups]=[]
+        stripe_count=0
+        block_count=0
+        while block_count < len(file):
+            stripe_id = f"{file_name}_{stripe_count}"
+            placements:List[common_pb2.Placement]=[]
+            blocks_in_current_stripe = 0
+            
+            while blocks_in_current_stripe < blocks_per_stripe and block_count < len(file):
+                placements.append(common_pb2.Placement(
+                    block_id=file[block_count][0],
+                    node=self.registry.to_node(file[block_count][1])
+                ))
+                block_count += 1  
+                blocks_in_current_stripe += 1
+
+            block_groups.append(common_pb2.BlockGroups(
+                stripe_id=stripe_id,
+                placement=placements
+            ))
+            stripe_count += 1
+        return block_groups
         
-    

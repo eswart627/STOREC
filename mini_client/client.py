@@ -19,7 +19,7 @@ def test_namenode_methods(host='localhost', port=50051):
     channel = grpc.insecure_channel(address)
     stub = namenode_pb2_grpc.NameNodeServiceStub(channel)
     
-    file_name = "test_file.txt"
+    file_name = "text_file.txt"
     file_size = 1024 * 1024  # 1 MB
     
     # 1. Ask for DataNodes (AllocateBlocks)
@@ -30,8 +30,8 @@ def test_namenode_methods(host='localhost', port=50051):
             file_size=file_size
         ),
         stripe_size=64 * 1024, # 64 KB stripes
-        data_blocks_k=3,
-        parity_blocks_m=2
+        data_blocks_k=6,
+        parity_blocks_m=3
     )
     
     try:

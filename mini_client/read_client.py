@@ -12,7 +12,7 @@ from proto import namenode_pb2
 from proto import namenode_pb2_grpc
 from proto import common_pb2
 
-def get_file_metadata(host='192.168.1.166', port=50051, file_name='test_file.txt'):
+def get_file_metadata(host='192.168.1.166', port=50051, file_name='text_file.txt'):
     address = f"{host}:{port}"
     print(f"Connecting to NameNode at {address}...")
     
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Read file metadata from NameNode.")
     parser.add_argument("--host", default="192.168.1.166", help="NameNode hostname (default: 192.168.1.166)")
     parser.add_argument("--port", default="50051", help="NameNode port (default: 50051)")
-    parser.add_argument("--file", default="test_file.txt", help="File name to read metadata for (default: test_file.txt)")
+    parser.add_argument("--file", default="text_file.txt", help="File name to read metadata for (default: test_file.txt)")
     
     args = parser.parse_args()
     get_file_metadata(host=args.host, port=args.port, file_name=args.file)

@@ -137,10 +137,14 @@ class NameNodeService(
         """
         file_details=request.file_details
         no_of_stripes=math.ceil(file_details.file_size / request.stripe_size)
-        block_size=math.ceil(request.stripe_size / request.data_blocks_k)
+        self.allocation_manager.block_size=math.ceil(request.stripe_size / request.data_blocks_k)
         no_of_shards=request.data_blocks_k+request.parity_blocks_m
         self.allocation_manager.set_policy(request.data_blocks_k,request.parity_blocks_m)
-        block_groups=self.allocation_manager.allocate( file_details=file_details,no_of_stripes=no_of_stripes,block_size=block_size,no_of_shards=no_of_shards)
+        block_groups=self.allocation_manager.allocate(
+            file_details=file_details,
+            no_of_stripes=no_of_stripes,
+            no_of_shards=no_of_shards
+        )
         return namenode_pb2.AllocateBlocksResponse(block_groups=block_groups)
 
     def CommitFile(self, request, context):
@@ -161,12 +165,12 @@ class NameNodeService(
         
         conn=get_connection()
         cur=conn.cursor()
-        cur.execute("SELECT id FROM metadata ORDER BY id DESC LIMIT 1")
+        cur.execute("SELECT id FROM metadata_table ORDER BY id DESC LIMIT 1")
         metadata_id = cur.fetchone()
         if metadata_id:
             metadata_id = metadata_id[0]
         else:
-            metadata_id = 1
+            metadata_id = 0
 
         for i in range(request.total_blocks):
             block_id=request.block_ids[i]
@@ -184,7 +188,7 @@ class NameNodeService(
                     )
                 )
         try:
-            cur.execute("INSERT into file_table(file_name, size, block_count, start_index) values(%s, %s, %s, %s)", (file_name, file_size, request.total_blocks, metadata_id+1))
+            cur.execute("INSERT into file_table(file_name, size, block_count, start_index,data_blocks,parity_blocks) values(%s, %s, %s, %s, %s, %s)", (file_name, file_size, request.total_blocks, metadata_id+1, self.allocation_manager.data_blocks, self.allocation_manager.parity_blocks))
         except Exception as e:
             self.logger.log("COMMIT_FILE", f"Failed to commit file {file_name}: {e}")
             conn.rollback()
@@ -219,23 +223,30 @@ class NameNodeService(
         conn= get_connection()
         cur=conn.cursor()
         try:
-            cur.execute("DELETE FROM metadata WHERE file_id = %s", (request.file_details.file_name,))
-            cur.execute("SELECT MAX(id) FROM metadata")
-            max_id = cur.fetchone()[0]
-            if max_id is None:
-                max_id = 0
-            cur.execute(f"ALTER TABLE metadata AUTO_INCREMENT = {max_id + 1}")
-        except Exception as e:
-            self.logger.log("DELETE_FILE", f"Failed to delete file {request.file_details.file_name}: {e}")
-            return namenode_pb2.DeleteFileResponse(
-                status=common_pb2.Status(
-                    success=False,
-                    message=f"Failed to delete file {request.file_details.file_name}: {e}"
-                )
-            )
-        try:
+            cur.execute("SELECT block_id, node_id, size FROM metadata_table WHERE file_id = %s", 
+                   (request.file_details.file_name,))
+            blocks = cur.fetchall()
+
+            cur.execute("DELETE FROM metadata_table WHERE file_id = %s", (request.file_details.file_name,))
             cur.execute("DELETE FROM file_table WHERE file_name = %s", (request.file_details.file_name,))
+            cur.execute("SELECT MAX(id) FROM metadata_table")
+            max_id = cur.fetchone()[0]
+            if max_id is not None:
+                next_id = int(max_id) + 1
+                query = f"ALTER TABLE metadata_table AUTO_INCREMENT = {next_id}"
+                cur.execute(query)
+            self.allocation_manager.delete_blocks(blocks,cur)
+            conn.commit()
+            self.logger.log("DELETE_FILE", f"Deleting file {request.file_details.file_name}")
+            return namenode_pb2.DeleteFileResponse(
+                status=common_pb2.Status(
+                    success=True,
+                    message="File deleted successfully"
+                )
+            )
+
         except Exception as e:
+            conn.rollback()
             self.logger.log("DELETE_FILE", f"Failed to delete file {request.file_details.file_name}: {e}")
             return namenode_pb2.DeleteFileResponse(
                 status=common_pb2.Status(
@@ -243,14 +254,6 @@ class NameNodeService(
                     message=f"Failed to delete file {request.file_details.file_name}: {e}"
                 )
             )
-        conn.commit()
-        self.logger.log("DELETE_FILE", f"Deleting file {request.file_details.file_name}")
-        return namenode_pb2.DeleteFileResponse(
-            status=common_pb2.Status(
-                success=True,
-                message="File deleted successfully"
-            )
-        )
 
     def list_files(self, request, context):
         """
@@ -292,40 +295,28 @@ class NameNodeService(
         self.logger.log("GET_FILE_METADATA", f"Getting metadata for file {request.file_details.file_name}")
         conn=get_connection()
         cur=conn.cursor()
-        cur.execute("SELECT block_id, node_id FROM metadata WHERE file_id=%s", (request.file_details.file_name,))
+        cur.execute("SELECT data_blocks,parity_blocks FROM file_table WHERE file_name=%s",(request.file_details.file_name))
+        result = cur.fetchone()
+        if result:
+            data_blocks, parity_blocks = result
+        else:
+            data_blocks, parity_blocks = 3, 2
+        cur.execute("SELECT block_id, node_id FROM metadata_table WHERE file_id=%s", (request.file_details.file_name,))
         file=cur.fetchall()
         total_blocks = len(file)
-        blocks_per_stripe = self.allocation_manager.data_blocks + self.allocation_manager.parity_blocks
+        blocks_per_stripe = data_blocks + parity_blocks
         no_of_stripes = total_blocks // blocks_per_stripe if blocks_per_stripe > 0 else 0
         stripe_size = request.file_details.file_size // no_of_stripes if no_of_stripes > 0 else 0
-        block_groups:List[common_pb2.BlockGroups]=[]
-        stripe_count=0
-        block_count=0
-        while block_count < len(file):
-            stripe_id = f"{request.file_details.file_name}_{stripe_count}"
-            placements:List[common_pb2.Placement]=[]
-            blocks_in_current_stripe = 0
-            
-            while blocks_in_current_stripe < blocks_per_stripe and block_count < len(file):
-                placements.append(common_pb2.Placement(
-                    block_id=file[block_count][0],
-                    node=self.registry.to_node(file[block_count][1])
-                ))
-                block_count += 1  
-                blocks_in_current_stripe += 1
-
-            block_groups.append(common_pb2.BlockGroups(
-                stripe_id=stripe_id,
-                placement=placements
-            ))
-            stripe_count += 1
+        block_groups = self.allocation_manager.send_metadata(request.file_details.file_name, file, blocks_per_stripe)
         return namenode_pb2.GetFileMetadataResponse(
             file_details=request.file_details,
             stripe_size=stripe_size,
-            data_blocks_k=self.allocation_manager.data_blocks,
-            parity_blocks_m=self.allocation_manager.parity_blocks,
+            data_blocks_k=data_blocks,
+            parity_blocks_m=parity_blocks,
             block_groups=block_groups
+            
         )
+
 class NameNodeServer:
     """
     Name node server.

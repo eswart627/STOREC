@@ -77,3 +77,53 @@ Commit no(14):
             use case: Implements complete metadata retrieval with proper block grouping and stripe formation
     Note: It is known bug that first read from namenode will bug out due to the fact that EC policy is volatile. 
           This will be fixed in next commits
+
+Commit no(15):
+    namenode/models/metadata.sql
+        Renamed table from 'metadata' to 'metadata_table'
+            use case: Fixed table name consistency across all database operations
+        
+    namenode/models/filetable.sql
+        Added data_blocks and parity_blocks columns
+            use case: Store erasure coding policy parameters per file for consistent metadata retrieval
+    
+    namenode/app/server.py
+        Fixed all SQL queries to use 'metadata_table' instead of 'metadata'
+            use case: Ensured database operations reference correct table name
+        DeleteFile method improvements:
+            - Added proper block retrieval before deletion
+            - Fixed AUTO_INCREMENT reset with proper SQL formatting
+            - Enhanced error handling with rollback
+            use case: Ensured complete file deletion with proper database cleanup
+        CommitFile method:
+            - Added data_blocks and parity_blocks to file_table insert
+            use case: Store erasure coding policy for each committed file
+        GetFileMetadata method:
+            - Retrieve data_blocks and parity_blocks from file_table
+            - Use allocation_manager.send_metadata for block grouping
+            use case: Consistent metadata retrieval using stored policy parameters
+    
+    namenode/app/allocation.py
+        delete_blocks method signature change:
+            - Changed from delete_blocks(self, file_name, cur) to delete_blocks(self, blocks, cur)
+            use case: Pass pre-fetched blocks for better performance and consistency
+        Added send_metadata method:
+            - Centralized block grouping logic from server
+            use case: Reusable metadata formatting for both allocation and retrieval
+        Enhanced commit_block:
+            - Added size field to metadata insertion
+            use case: Store block size for proper space accounting during deletion
+    
+    namenode/app/registry.py
+        load_state method:
+            - Set initial DataNode status to "INACTIVE" instead of "ACTIVE"
+            use case: Ensure DataNodes start inactive until heartbeat received
+    
+    namenode/db_manager/check_tables.py
+        Updated to query 'metadata_table' instead of 'metadata'
+            use case: Consistent database table verification
+    
+    mini_client files:
+        Updated default file names from 'test_file.txt' to 'text_file.txt'
+        Updated erasure coding parameters (data_blocks=6, parity_blocks=3)
+            use case: Consistent testing parameters across all client scripts

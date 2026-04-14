@@ -3,5 +3,7 @@ CREATE TABLE IF NOT EXISTS file_table (
     size BIGINT NOT NULL,
     block_count INT NOT NULL,
     start_index INT NOT NULL,
+    data_blocks INT NOT NULL,
+    parity_blocks INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

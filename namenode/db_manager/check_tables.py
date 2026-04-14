@@ -12,7 +12,7 @@ def check_tables():
     cur.execute("SELECT * FROM file_table")
     for row in cur.fetchall():
         print(row)
-    cur.execute("SELECT * FROM metadata")
+    cur.execute("SELECT * FROM metadata_table")
     for row in cur.fetchall():
         print(row)
     conn.close()

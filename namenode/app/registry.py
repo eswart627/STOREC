@@ -84,26 +84,13 @@ class DataNodeRegistry:
         Update the heartbeat timestamp for an already registered DataNode.
         """
         now = int(time.time())
-        with self.lock:
-            if node_id not in self.nodes:
-                return f"Node {node_id} not found in registry"
+        
+        if node_id not in self.nodes:
+            return f"Node {node_id} not found in registry"
 
-            self.nodes[node_id]["last_heartbeat"] = now
-            self.nodes[node_id]["status"] = "ACTIVE"
-            
-            # Can be remove this DB update if we want to reduce DB load and only persist on shutdown.
-            conn = get_connection()
-            cur = conn.cursor()
-            cur.execute(
-                """
-                UPDATE dn_table
-                SET dn_status = %s, dn_last_heartbeat = %s
-                WHERE dn_id = %s
-                """,
-                ("ACTIVE", now, node_id),
-            )
-            conn.commit()
-            conn.close()
+        self.nodes[node_id]["last_heartbeat"] = now
+        self.nodes[node_id]["status"] = "ACTIVE"
+        
         return None
 
     def list_nodes(self) -> dict[str,node_template]:
