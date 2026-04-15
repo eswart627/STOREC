@@ -61,19 +61,35 @@ class DataNodeService(datanode_pb2_grpc.DataNodeServiceServicer):
 
     def ReadBlock(self, request, context):
         block_path = os.path.join(self.storage.chunks_dir, request.block_id)
+    
         if not os.path.exists(block_path):
-            return datanode_pb2.ReadBlockResponse(
+           # You can yield a single error response and return
+            yield datanode_pb2.ReadBlockResponse(
                 status=common_pb2.Status(success=False, message="Block not found")
-            )
-        
-        with open(block_path, "rb") as f:
-            data = f.read()
-            
-        return datanode_pb2.ReadBlockResponse(
-            status=common_pb2.Status(success=True),
-            block=common_pb2.Block(block_id=request.block_id, size_bytes=len(data), data_bytes=data)
-        )
+             )
+            return
 
+        CHUNK_SIZE = 1024 * 1024  # 1MB chunks
+    
+        try:
+           with open(block_path, "rb") as f:
+              while True:
+                chunk = f.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                
+                # We yield each chunk individually
+                yield datanode_pb2.ReadBlockResponse(
+                    status=common_pb2.Status(success=True),
+                    block=common_pb2.Block(
+                        block_id=request.block_id, 
+                        size_bytes=len(chunk), 
+                        data_bytes=chunk
+                    )
+                )
+        except Exception as e:
+            self.logger.log("READ_ERROR", str(e))
+        
     def DeleteBlock(self, request, context):
         block_path = os.path.join(self.storage.chunks_dir, request.block_id)
         if os.path.exists(block_path):

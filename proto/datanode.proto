@@ -14,7 +14,7 @@ service DataNodeService {
     // (Block) => (Status, NodeId, block_id)
 
   rpc ReadBlock(ReadBlockRequest)
-  returns (ReadBlockResponse);
+  returns (stream ReadBlockResponse);
     // (block_id)
     // (Status, Block)
 
