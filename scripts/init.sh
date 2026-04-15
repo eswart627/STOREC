@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+NAMENODE_DIR="${PROJECT_ROOT}/namenode"
+
+# ... (Docker and Python detection logic remains the same) ...
+if command -v docker >/dev/null 2>&1; then
+    DOCKER_CMD=(docker compose)
+elif command -v docker-compose >/dev/null 2>&1; then
+    DOCKER_CMD=(docker-compose)
+else
+    echo "Docker Compose is not installed or not in PATH."
+    exit 1
+fi
+
+if command -v python3 >/dev/null 2>&1; then
+    PYTHON_CMD=(python3)
+elif command -v python >/dev/null 2>&1; then
+    PYTHON_CMD=(python)
+elif command -v py >/dev/null 2>&1; then
+    PYTHON_CMD=(py)
+else
+    echo "Python is not installed or not in PATH."
+    exit 1
+fi
+
+# MODIFIED CLEANUP: Only handles NameNode exit message.
+# We REMOVE 'docker compose down' from here so the DB stays alive.
+cleanup() {
+    echo -e "\n[SYSTEM] Received interrupt. Shutting down NameNode gracefully..."
+    # The Python process will receive the same SIGINT and trigger its 
+    # internal grace period logic automatically.
+}
+
+trap cleanup INT TERM
+
+echo "Starting Database Container..."
+(
+    cd "${NAMENODE_DIR}"
+    "${DOCKER_CMD[@]}" up -d
+)
+
+echo "Waiting for database to stabilize..."
+sleep 10
+
+echo "Starting NameNode..."
+echo "NOTE: To stop the DB later, run: cd namenode && docker compose down"
+(
+    cd "${PROJECT_ROOT}"
+    # Running directly so it receives the Ctrl+C (SIGINT) signal
+    "${PYTHON_CMD[@]}" -m namenode.app.main
+)

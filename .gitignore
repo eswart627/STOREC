@@ -1,3 +1,12 @@
 logs/
 data/
 __pycache__/
+*_pb2.py
+*_pb2_grpc.py
+doubts.txt
+*_pb2.pyi
+logs/
+
+myenv/
+.env
+mymy/

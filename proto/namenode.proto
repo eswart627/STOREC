@@ -2,61 +2,70 @@ syntax = "proto3";
 
 package proto;
 
-import "proto/common.proto";
+import "common.proto";
 
 service NameNodeService {
-  rpc RegisterDataNode(RegisterRequest)
-  returns (RegisterResponse);
-// invoked by datanode for announcement
-// namenode recording the cluster
-// (node_id, address, port, capacity)
 
-  rpc AllocateBlocks(AllocateBlocksRequest)
-  returns (AllocateBlocksResponse);
-// invoked by client for storage targets
-// namenode access record/registry
-// (file_name, file_size, stripe_size, data_blocks_k, parity_blocks_m)
-// (stripe_id, block_id, NodeId)
-// (File, string_id, data_blocks_k, data_blocks_m) => (stripe_id, Placement)
+    // DataNode registration
+    rpc RegisterDataNode (RegisterRequest)
+    returns (RegisterResponse);
 
-  rpc CommitFile(CommitFileRequest)
-  returns (CommitFileResponse);
-// invoked by client to finalize the file status
-// namenode accesses the file metadata structure
-// (File, total_blocks, block_ids[])
-// (Status)
+    rpc AllocateBlocks(AllocateBlocksRequest)
+    returns (AllocateBlocksResponse);
+    // invoked by client for storage targets
+    // namenode access record/registry
+    // (file_name, file_size, stripe_size, data_blocks_k, parity_blocks_m)
+    // (stripe_id, block_id, NodeId)
+    // (File, string_id, data_blocks_k, data_blocks_m) => (stripe_id, Placement)
+   
 
-  rpc GetFileMetadata (GetFileMetadataRequest)
-  returns (GetFileMetadataResponse);
-// invoked by client for file metadata query (file retrieval)
-// namenode accesses the file metadata structure
-// (File)
-// (File, stripe_size, data_blocks_k, parity_blocks_m, block_groups)
+    rpc CommitFile(CommitFileRequest)
+    returns (CommitFileResponse);
+    // invoked by client to finalize the file status
+    // namenode accesses the file metadata structure
+    // (File, total_blocks, block_ids[])
+    // (Status)
 
-  rpc DeleteFile (DeleteFileRequest)
-  returns (DeleteFileResponse);
-// invoked by client for deletion
-// namenode accesses the file metadata structure
-// (File)
-// (success, message, block_ids[])
 
-  rpc Heartbeat (HeartbeatRequest)
-  returns (HeartbeatResponse);
-// invoked by DN
-// namenode accesses the record/registry
+    rpc GetFileMetadata (GetFileMetadataRequest)
+    returns (GetFileMetadataResponse);
+    // invoked by client for file metadata query (file retrieval)
+    // namenode accesses the file metadata structure
+    // (File)
+    // (File, stripe_size, data_blocks_k, parity_blocks_m, block_groups)
 
-  rpc ListFiles (ListFilesRequest)
-  returns (ListFilesResponse);
+    rpc DeleteFile (DeleteFileRequest)
+    returns (DeleteFileResponse);
+    // invoked by client for deletion
+    // namenode accesses the file metadata structure
+    // (File)
+    // (success, message, block_ids[])
+
+
+    // Heartbeat
+    rpc SendHeartbeat (HeartbeatRequest) 
+    returns (HeartbeatResponse);
+
+    rpc ListFiles (ListFilesRequest)
+    returns (ListFilesResponse);
+
+
 }
 
+
+
 message RegisterRequest {
-  NodeId node           = 1;
-  int64  capacity_bytes = 2;
+    Node node = 1;
+    int64 capacity_bytes = 2;
+    string node_id = 3; // datanode sends its stored ID of it has one
 }
 
 message RegisterResponse {
-  Status status = 1;
+    string node_id = 1; // Renamed 'Id' as 'node_id' for consistency with heartbeat
+    Status status = 2;
 }
+
+
 
 message AllocateBlocksRequest{
   File  file_details    = 1;
@@ -105,6 +114,7 @@ message ListFilesRequest{}
 message ListFilesResponse{
   repeated File file_details = 1;
 }
+
 
 message HeartbeatRequest {
   HeartbeatInfo heartbeat = 1;

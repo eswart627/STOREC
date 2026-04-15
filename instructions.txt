@@ -4,11 +4,59 @@ UPPER_CASE -> enum values, config
 
 
 protobuf files compilation:
+In wsl :
+ activate the myenv environment -> chmod +x scripts/proto.sh -> ./scripts/proto.sh
+
 python -m grpc_tools.protoc ^ -I . ^ --python_out=. ^ --grpc_python_out=. ^ proto\common.proto ^ proto\namenode.proto ^ proto\datanode.proto
 
 for datanode: python -m datanode.app.main
-for namenode: python -m namemnode.app.main
+for namenode: python -m namenode.app.main
+
+To run proto files:
+  In Git Bash:
+    cd storec
+     ./scripts/proto.sh
 
 
+TO run namenode :
+  In Git Bash: ( Works too persistent DB )
+    ->cd storec
+    -> chmod +x init.sh
+    ->scripts/init.sh ( this will re create the DB if u r doing for first time and then run the namenode server )
+    
+    To use persistent DB and want to see the DB after shutting off namenode: ( use this )
+    -> cd namendoe
+    -> docker-compose up -d  ( this will run DB in docker)
+    -> cd..
+    -> python -m namenode.app.main ( starts namenode server )
+
+To run docker-compose.yaml( to run datanode in docker container ):
+
+  -> cd storec
+  -> docker build -t storec-datanode -f datanode/Dockerfile . ( make sure in datanode/.env u provide ur datanode ip instead of 0.0.0.0)
+  -> docker run --name datanode1 --env-file datanode/.env -p 50052:50052 -v storec_dn1_data:/data storec-datanode
+
+  docker logs -f datanode-v3   # to see the logs in terminal instead of seeing in docekr desktop
+  docker compose down    # To stop or remove the container 
+  docker compose restart datanode  # To restart the DataNode container
+
+To check DB:
+  -> cd storec
+  -> python -m db_manager.check_tables
+
+To check the lookups ( not when namenode is in running state )
+  -> python -m namenode.app.show_lookups.py
 
 
+To check the allocation logic:
+    get the db up
+    py -m namenode.db_manager.init_db
+    py -m namenode.db_manager.fakenode (inserts fakenodes for testing purposes)
+    py -m namenode.db_manager.check_tables (to check the tables)
+    namenode.app.registry: Line 190: change status to "ACTIVE"
+    py -m namenode.app.main 1
+
+    py -m mini_client.client (Emulates writing)
+    py -m mini_client.delete_client (Emulates deleting)
+
+    (py -m namenode.db_manager.nuke) [Clears the DB if you want without having to kill docker image]    

@@ -1,0 +1,29 @@
+from .connection import get_connection
+
+def clear_tables() -> None:
+    """
+    Clear all tables from the MySQL DB.
+    """
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Clear the dn_table
+    cur.execute("DROP TABLE dn_table")
+
+    # Clear the files_table
+    cur.execute("DROP TABLE file_table")
+
+    # Clear the blocks_table
+    cur.execute("DROP TABLE metadata_table")
+    
+    
+    print("Successfully cleared tables.")
+
+    conn.commit()
+    conn.close()
+
+
+# Run the clear_tables function
+if __name__=="__main__":
+    clear_tables()
