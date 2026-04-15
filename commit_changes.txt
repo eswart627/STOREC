@@ -199,4 +199,4 @@ Commit no(17):
         Successfully tested end-to-end allocation and retrieval workflow
         Verified 144 blocks allocated and retrieved with matching checksums
         Confirmed file deletion and database cleanup operations
-        
+Commit 18: Block size configuration
