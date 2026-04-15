@@ -15,7 +15,7 @@ def clear_tables() -> None:
     cur.execute("DELETE FROM file_table")
 
     # Clear the blocks_table
-    cur.execute("DELETE FROM metadata")
+    cur.execute("DELETE FROM metadata_table")
     
     print("Successfully cleared tables.")
 
