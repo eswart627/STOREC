@@ -127,3 +127,50 @@ Commit no(15):
         Updated default file names from 'test_file.txt' to 'text_file.txt'
         Updated erasure coding parameters (data_blocks=6, parity_blocks=3)
             use case: Consistent testing parameters across all client scripts
+
+Commit no(16):
+    NEW: docu.txt
+        Comprehensive system documentation for developer reference
+        Detailed explanation of all NameNode components and methods
+        Sections include Allocation Manager, Data Node Registry, NameNode Server, Health Checker
+        Database schemas, data flow explanations, client integration details
+        use case: Complete technical reference for system understanding and maintenance
+    
+    mini_client/read_client.py
+        Added checksum verification functionality
+        SHA256 checksum generation from sorted block IDs joined with '|'
+        Block ID writing to text file ({filename}_block_ids.txt) with metadata header
+        use case: Verify block integrity across operations and provide persistent block records
+    
+    namenode/app/allocation.py
+        Refactored allocation storage from list to dictionary keyed by file name
+        Structure: self.allocations[file_name][stripe_id][block_id] = node_id
+        Updated allocate() method for file-keyed allocation structure
+        Modified commit_block() to accept list of block IDs, implements all-or-nothing commit
+        Updated release_nodes() for file-keyed structure, marked as under maintenance
+        Removed self.allocation_counter variable (no longer needed)
+        use case: Better organization, file-scoped operations, improved rollback capability
+    
+    namenode/app/server.py
+        Updated CommitFile to use new commit_block() signature with block ID list
+        Simplified rollback to delete allocation entry instead of calling release_nodes()
+        Implemented single transaction commit for all blocks (all-or-nothing semantics)
+        use case: Enhanced transaction safety and consistent error handling
+    
+    namenode/app/registry.py
+        use case: Ensure nodes are available for immediate allocation after startup
+    
+    Configuration Updates:
+        Files updated: client.py, delete_client.py, read_client.py, namenode.config
+        use case: Consistent network configuration across all components
+    
+    Database Schema Updates:
+        Added stripe_id column to metadata_table for block grouping
+        Modified nuke.py to use DROP TABLE instead of DELETE for clean resets
+        use case: Enhanced block organization and improved database cleanup procedures
+    
+    Key Features Implemented:
+        Checksum Verification System - SHA256 hash of sorted block IDs for integrity verification
+        File-based Allocation System - Nested dictionary structure for better organization
+        All-or-Nothing Commit Semantics - Single transaction commit with complete rollback
+        use case: Enhanced data integrity, better error handling, improved system reliability

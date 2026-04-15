@@ -172,19 +172,17 @@ class NameNodeService(
         else:
             metadata_id = 0
 
-        for i in range(request.total_blocks):
-            block_id=request.block_ids[i]
-            self.logger.log("COMMIT_FILE", f"Committing block {block_id} for file {file_name}")
-            try:
-                self.allocation_manager.commit_block(file_name, block_id,cur)
-            except Exception as e:
-                self.logger.log("COMMIT_FILE", f"Failed to commit block {block_id} for file {file_name}: {e}")
-                conn.rollback()
-                self.allocation_manager.release_nodes(request.block_ids)
-                return namenode_pb2.CommitFileResponse(
-                    status=common_pb2.Status(
-                        success=False,
-                        message=f"Failed to commit block {block_id} for file {file_name}: {e}"
+        try:
+            self.logger.log("COMMIT_FILE", f"Committing {len(request.block_ids)} blocks for file {file_name}")
+            self.allocation_manager.commit_block(file_name, request.block_ids, cur)
+        except Exception as e:
+            self.logger.log("COMMIT_FILE", f"Failed to commit blocks for file {file_name}: {e}")
+            conn.rollback()
+            del self.allocation_manager.allocations[file_name]
+            return namenode_pb2.CommitFileResponse(
+                status=common_pb2.Status(
+                    success=False,
+                    message=f"Failed to commit blocks for file {file_name}: {e}"
                     )
                 )
         try:
@@ -192,7 +190,7 @@ class NameNodeService(
         except Exception as e:
             self.logger.log("COMMIT_FILE", f"Failed to commit file {file_name}: {e}")
             conn.rollback()
-            self.allocation_manager.release_nodes(request.block_ids)
+            del self.allocation_manager.allocations[file_name]
             return namenode_pb2.CommitFileResponse(
                 status=common_pb2.Status(
                     success=False,

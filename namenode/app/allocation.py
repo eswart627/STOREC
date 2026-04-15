@@ -1,6 +1,6 @@
 import uuid
 import threading
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from proto import common_pb2
 from .registry import DataNodeRegistry
 from .logger import Logger
@@ -32,6 +32,7 @@ class AllocationManager:
         self.data_blocks=data_blocks
         self.parity_blocks=parity_blocks
         self.block_size=0
+        
     def set_policy(self,data_blocks:int,parity_blocks:int):
         self.data_blocks=data_blocks
         self.parity_blocks=parity_blocks
@@ -81,13 +82,17 @@ class AllocationManager:
             available_nodes = self.get_nodes()
             if not available_nodes:
                 raise Exception("No available nodes to allocate blocks")
-
             total_nodes = len(available_nodes)
             start_cursor = self.cursor
-            reservations: List[List[Tuple[str, str]]] = []
-
+            
+            # Initialize allocation for this file
+            file_name = file_details.file_name
+            self.allocations[file_name] = {}
+            
             for i in range(no_of_stripes):
-                stripe_reservations: List[Tuple[str, str]] = []
+                stripe_id = f"{file_name}_{i}"
+                self.allocations[file_name][stripe_id] = {}
+                
                 for j in range(no_of_shards):
                     node_index = (start_cursor + j) % total_nodes
                     node_id = available_nodes[node_index]
@@ -95,24 +100,25 @@ class AllocationManager:
                     block_id = str(uuid.uuid4())
 
                     # Reserve resources
-                    self.allocations[block_id] = node_id
+                    self.allocations[file_name][stripe_id][block_id] = node_id
                     self.registry.nodes[node_id]['available'] -= self.block_size
                     self.registry.nodes[node_id]['assigned'] = True
 
-                    stripe_reservations.append((block_id, node_id))
-
-                reservations.append(stripe_reservations)
                 start_cursor = (start_cursor + no_of_shards) % total_nodes
 
             self.cursor = start_cursor
         
         block_groups: List[common_pb2.BlockGroups] = []
 
-        for i, stripe in enumerate(reservations):
-            stripe_id = f"{file_details.file_name}_{i}"
+        # Use the actual allocation structure to build block groups
+        current_allocation = self.allocations[file_name]
+        for i in range(no_of_stripes):
+            stripe_id = f"{file_name}_{i}"
             stripe_placements: List[common_pb2.Placement] = []
 
-            for block_id, node_id in stripe:
+            # Get the stripe allocation from the current allocation
+            stripe_allocation = current_allocation.get(stripe_id, {})
+            for block_id, node_id in stripe_allocation.items():
                 node_proto = self.registry.to_node(node_id)
 
                 stripe_placements.append(
@@ -130,39 +136,84 @@ class AllocationManager:
             )
 
         return block_groups
-    def commit_block(self,file_name,block_id,curr)->None:
+    def commit_block(self,file_name,block_ids,curr)->None:
         """
-        Commit a block to the database.
+        Commit blocks to the database.
         
         args:
             file_name: str - The name of the file
-            block_id: str - The ID of the block
+            block_ids: List[str] - List of block IDs to commit
             curr: cursor - The database cursor
             
         returns:
             None
         """
         with self.lock:
-            if block_id in self.allocations:
-                node_id = self.allocations[block_id]
-                curr.execute("INSERT INTO metadata_table (file_id, block_id,size, node_id) VALUES (%s, %s, %s, %s)", (file_name, block_id, self.block_size, node_id))
-                self.registry.nodes[node_id]['assigned'] = False
-                del self.allocations[block_id]
-    def release_nodes(self,blocks:List[str])->None:
+            if file_name not in self.allocations:
+                raise Exception(f"No allocations found for file {file_name}")
+            
+            file_allocation = self.allocations[file_name]
+            block_ids_set = set(block_ids)  # Convert to set for efficient lookup
+            committed_blocks = set()  # Track what we actually commit
+            
+            # Iterate through all stripes in the file allocation
+            for stripe_id, stripe_allocation in file_allocation.items():
+                # Iterate through all blocks in this stripe
+                blocks_to_remove = []
+                for block_id, node_id in stripe_allocation.items():
+                    if block_id in block_ids_set:
+                        # Commit this block to database
+                        curr.execute("INSERT INTO metadata_table (file_id, stripe_id, block_id,size, node_id) VALUES (%s, %s, %s, %s, %s)", (file_name, stripe_id, block_id, self.block_size, node_id))
+                        self.registry.nodes[node_id]['assigned'] = False
+                        committed_blocks.add(block_id)  # Track what we committed
+                        blocks_to_remove.append(block_id)
+                
+                # Remove committed blocks from stripe allocation
+                #for block_id in blocks_to_remove:
+                    #del stripe_allocation[block_id]
+                
+                # Clean up empty stripe allocations
+                #if not stripe_allocation:
+                    #del file_allocation[stripe_id]
+            
+            # Check if all requested block_ids were found and committed
+            missing_blocks = block_ids_set - committed_blocks
+            if missing_blocks:
+                raise Exception(f"Blocks not found in allocation: {list(missing_blocks)}")
+            
+            # Clean up empty file allocations
+            if not file_allocation:
+                del self.allocations[file_name]
+    def release_nodes(self,file_name:str, blocks:List[str])->None:
         """
-        Rollback a block allocation.
+        Under Maintainenance
         
         args:
-            block_id: str - The ID of the block
+            file_name: str - The name of the file
+            blocks: List[str] - List of block IDs to release
             
         returns:
             None
         """
-        for block_id in blocks:
-            if block_id in self.allocations:
-                node_id = self.allocations[block_id]
-                self.registry.nodes[node_id]['assigned'] = False
-                del self.allocations[block_id]
+        with self.lock:
+            if file_name in self.allocations:
+                file_allocation = self.allocations[file_name]
+                for block_id in blocks:
+                    # Search through stripes to find the block
+                    for stripe_id, stripe_allocation in file_allocation.items():
+                        if block_id in stripe_allocation:
+                            node_id = stripe_allocation[block_id]
+                            self.registry.nodes[node_id]['assigned'] = False
+                            del stripe_allocation[block_id]
+                            
+                            # Clean up empty stripe allocations
+                            if not stripe_allocation:
+                                del file_allocation[stripe_id]
+                            break
+                
+                # Clean up empty file allocations
+                if not file_allocation:
+                    del self.allocations[file_name]
     def delete_blocks(self,blocks,cur):
         with self.lock:
             for block in blocks:

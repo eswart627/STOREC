@@ -9,13 +9,14 @@ def clear_tables() -> None:
     cur = conn.cursor()
 
     # Clear the dn_table
-    cur.execute("DELETE FROM dn_table")
+    cur.execute("DROP TABLE dn_table")
 
     # Clear the files_table
-    cur.execute("DELETE FROM file_table")
+    cur.execute("DROP TABLE file_table")
 
     # Clear the blocks_table
-    cur.execute("DELETE FROM metadata_table")
+    cur.execute("DROP TABLE metadata_table")
+    
     
     print("Successfully cleared tables.")
 
