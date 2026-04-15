@@ -57,11 +57,11 @@ service NameNodeService {
 message RegisterRequest {
     Node node = 1;
     int64 capacity_bytes = 2;
-    string node_id = 3; // datanode sends its stored ID of it has one
+    string node_id = 3;   // datanode sends its stored ID of it has one
 }
 
 message RegisterResponse {
-    string node_id = 1; // Renamed 'Id' as 'node_id' for consistency with heartbeat
+    string node_id = 1;   // Renamed 'Id' as 'node_id' for consistency with heartbeat
     Status status = 2;
 }
 
@@ -117,9 +117,10 @@ message ListFilesResponse{
 
 
 message HeartbeatRequest {
-  HeartbeatInfo heartbeat = 1;
+    Heartbeat heartbeat = 1;
 }
 
 message HeartbeatResponse {
-  Status status = 1;
+    Status status = 1;
 }
+
