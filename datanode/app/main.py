@@ -14,7 +14,8 @@ def main():
     # This gets the 'storec' directory where you run the command from
     base_dir = os.getcwd()
     load_dotenv(os.path.join(base_dir, "datanode", ".env"))
-
+    print(f"Base directory: {base_dir}", flush=True)  # Debug print to check base_dir value
+    
     # 1. Load Config
     config_path = os.path.join(base_dir, "datanode", "config", "datanode.config")
     config = Config(path=config_path)
@@ -29,7 +30,10 @@ def main():
     )
 
     # 3. Setup Storage
-    storage_root = os.path.join(base_dir, "datanode", config.data_dir)
+    #storage_root = os.path.join(base_dir, "datanode", config.data_dir)
+    storage_root  = "/data"
+    print(f"Storage root: {storage_root}", flush=True)  # Debug print to check storage_root value
+    
     storage = StorageManager(base_dir=storage_root)
     storage.initialize()
     logger.log("STORAGE_INIT", storage_root)

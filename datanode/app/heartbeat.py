@@ -2,6 +2,7 @@ import time
 import threading
 import sys
 import os # Added for hard process termination
+import shutil
 
 from proto import namenode_pb2
 from proto import common_pb2 
@@ -31,11 +32,14 @@ class HeartbeatManager:
         print(self.config.node_id, flush=True)  # Debug print to check node_id value
         while self.running:
             try:
+                
+                total, used, free = shutil.disk_usage("/data")
+                
                 heartbeat_data = common_pb2.Heartbeat(
                     node_id = self.config.node_id,
                     timestamp = int(time.time()),
-                    used_bytes = 100, 
-                    free_bytes = self.config.capacity_bytes - 100
+                    used_bytes = used, 
+                    free_bytes = free
                 )
                 request = namenode_pb2.HeartbeatRequest(heartbeat=heartbeat_data)
 
