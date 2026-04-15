@@ -4,7 +4,9 @@ from .connection import get_connection
 
 
 def main() -> None:
-    """Recreate DataNode table so local development starts from a clean DB."""
+    """
+    Initialize the database by executing the SQL scripts.
+    """
     conn = None
     try:
         conn = get_connection()

@@ -1,7 +1,11 @@
 from datetime import datetime
 
 from .registry import DataNodeRegistry
-
+def do_nothing():
+    """
+    UNDER MAINTAINENCE
+    """
+    pass
 
 def _format_heartbeat(epoch: int) -> str:
     if not epoch:

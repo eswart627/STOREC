@@ -2,7 +2,7 @@ from .connection import get_connection
 
 def clear_tables() -> None:
     """
-    Clear all three tables from the MySQL DB.
+    Clear all tables from the MySQL DB.
     """
 
     conn = get_connection()

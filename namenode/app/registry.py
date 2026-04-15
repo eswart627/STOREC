@@ -82,6 +82,12 @@ class DataNodeRegistry:
     def heartbeat(self, node_id: str) -> str | None:
         """
         Update the heartbeat timestamp for an already registered DataNode.
+
+        Args:
+            node_id: Unique identifier for the node.
+            
+        Returns:
+            Error message if node not found, None otherwise.
         """
         now = int(time.time())
         
@@ -154,6 +160,9 @@ class DataNodeRegistry:
     def load_state(self) -> int:
         """
         Load the state of the registry from the database.
+        
+        Returns:
+            Number of nodes loaded from the database.
         """
         with self.lock:
             self.nodes.clear()

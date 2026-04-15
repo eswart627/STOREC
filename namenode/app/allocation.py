@@ -74,8 +74,7 @@ class AllocationManager:
             file_details: common_pb2.FileDetails - The file details
             no_of_stripes: int - The number of stripes
             no_of_shards: int - The number of shards
-            block_size: int - The size of the block to allocate
-            
+                        
         returns:
             list[common_pb2.BlockGroups] - The list of block groups
         """

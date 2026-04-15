@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 def get_connection():
+    """
+    Get a connection to the database
+    """
     try:
         host = os.getenv("DB_HOST")
         port = os.getenv("DB_PORT")

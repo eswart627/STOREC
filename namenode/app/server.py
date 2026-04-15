@@ -380,6 +380,8 @@ class NameNodeServer:
     def stop(self, grace_period: int = 10) -> None:
         """
         Stop the name node server with a custom grace period.
+        Args:
+            grace_period: Time in seconds to wait for existing RPCs to complete.
         """
         print(f"Stopping NameNode server (grace period: {grace_period}s)...", flush=True)
         
