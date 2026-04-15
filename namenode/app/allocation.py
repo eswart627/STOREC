@@ -76,7 +76,7 @@ class AllocationManager:
             block_size: int - The size of the block to allocate
             
         returns:
-            list[namenode_pb2.BlockGroup] - The list of block groups
+            list[common_pb2.BlockGroups] - The list of block groups
         """
         with self.lock:
             available_nodes = self.get_nodes()

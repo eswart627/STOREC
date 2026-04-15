@@ -174,3 +174,29 @@ Commit no(16):
         File-based Allocation System - Nested dictionary structure for better organization
         All-or-Nothing Commit Semantics - Single transaction commit with complete rollback
         use case: Enhanced data integrity, better error handling, improved system reliability
+
+Commit no(17):
+    namenode/__init__.py (NEW)
+        Empty __init__.py file for proper package structure
+        use case: Enable namenode package imports and module organization
+    
+    namenode/app/__init__.py (NEW)
+        Empty __init__.py file for app subpackage
+        use case: Enable namenode.app imports and proper module hierarchy
+    
+    namenode/app/allocation.py
+        Fixed type hint in allocate method return type
+        Changed from: list[namenode_pb2.BlockGroup]
+        Changed to: list[common_pb2.BlockGroups]
+        use case: Correct protobuf type reference for proper type checking
+    
+    
+    requirements.txt
+        Added: flaskblinker, cffi, click, cryptography, Flask, itsdangerous, Jinja2, MarkupSafe, pycparser, pytz, Werkzeug
+        use case: Support web interface and additional functionality requirements
+    
+    Test Results:
+        Successfully tested end-to-end allocation and retrieval workflow
+        Verified 144 blocks allocated and retrieved with matching checksums
+        Confirmed file deletion and database cleanup operations
+        
