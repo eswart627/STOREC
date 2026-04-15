@@ -137,7 +137,6 @@ class NameNodeService(
         """
         file_details=request.file_details
         no_of_stripes=math.ceil(file_details.file_size / request.stripe_size)
-        self.allocation_manager.block_size=math.ceil(request.stripe_size / request.data_blocks_k)
         no_of_shards=request.data_blocks_k+request.parity_blocks_m
         self.allocation_manager.set_policy(request.data_blocks_k,request.parity_blocks_m)
         block_groups=self.allocation_manager.allocate(

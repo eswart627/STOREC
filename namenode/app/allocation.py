@@ -4,6 +4,7 @@ from typing import List, Tuple, Dict
 from proto import common_pb2
 from .registry import DataNodeRegistry
 from .logger import Logger
+from .constants import block_size
 
 class AllocationManager:
     """
@@ -31,7 +32,7 @@ class AllocationManager:
         self.cursor = 0
         self.data_blocks=data_blocks
         self.parity_blocks=parity_blocks
-        self.block_size=0
+        self.block_size=block_size
         
     def set_policy(self,data_blocks:int,parity_blocks:int):
         self.data_blocks=data_blocks
