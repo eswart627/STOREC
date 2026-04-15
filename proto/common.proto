@@ -15,8 +15,8 @@ message NodeId {
 
 // Used for sending status of heartbeat
 message Status {
-  bool   success = 1;
-  string message = 2;
+    bool success = 1;
+    string message = 2;
 }
 
 message File {
@@ -34,22 +34,17 @@ message BlockGroups{
   repeated Placement placement = 2;
 }
 
-// Shard metadata
-message ShardMetadata {
-    string stripe_id = 1;
-    int32 shard_index = 2;
-    int64 size_bytes = 3;
+message Block {
+  string block_id   = 1;
+  int64  size_bytes = 2;
+  bytes  data_bytes = 3;
 }
 
-// Placement information
-message ShardPlacement {
-    ShardMetadata shard = 1;
-    NodeId node = 2;
-}
 
-message HeartbeatInfo {
-  string node_id    = 1;
-  int64  timestamp  = 2;
-  int64  used_bytes = 3;
-  int64  free_bytes = 4;
+// Heartbeat information
+message Heartbeat {
+    string node_id = 1;
+    int64 timestamp = 2;
+    int64 used_bytes = 3;
+    int64 free_bytes = 4;
 }
