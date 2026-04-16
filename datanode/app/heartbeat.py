@@ -33,7 +33,7 @@ class HeartbeatManager:
         while self.running:
             try:
                 
-                total, used, free = shutil.disk_usage("/data")
+                total, used, free = shutil.disk_usage(self.storage.base_dir)
                 
                 heartbeat_data = common_pb2.Heartbeat(
                     node_id = self.config.node_id,

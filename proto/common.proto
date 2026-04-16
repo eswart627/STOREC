@@ -24,12 +24,6 @@ message File {
   int64  file_size = 2;
 }
 
-message Block{
-  string block_id = 1;
-  bytes  data_bytes = 2;
-  int64  block_size = 3;
-}
-
 message Placement {
   string block_id = 1;
   NodeId node     = 2;

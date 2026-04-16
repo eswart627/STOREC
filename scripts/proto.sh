@@ -12,7 +12,7 @@ echo "Compiling protos from $PROTO_SRC_DIR to $OUTPUT_DIR..."
 
 # 2. Run compiler
 # We use python3 -m grpc_tools.protoc
-py -m grpc_tools.protoc \
+python3 -m grpc_tools.protoc \
     -I $PROTO_SRC_DIR \
     --python_out=$OUTPUT_DIR \
     --grpc_python_out=$OUTPUT_DIR \

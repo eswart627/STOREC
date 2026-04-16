@@ -30,8 +30,8 @@ def main():
     )
 
     # 3. Setup Storage
-    #storage_root = os.path.join(base_dir, "datanode", config.data_dir)
-    storage_root  = "/data"
+    storage_root = os.path.join(base_dir, "datanode", config.data_dir)
+    #storage_root  = "/data"
     print(f"Storage root: {storage_root}", flush=True)  # Debug print to check storage_root value
     
     storage = StorageManager(base_dir=storage_root)
