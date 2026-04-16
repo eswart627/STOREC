@@ -40,19 +40,6 @@ message BlockGroups{
   repeated Placement placement = 2;
 }
 
-// Shard metadata
-message ShardMetadata {
-    string stripe_id = 1;
-    int32 shard_index = 2;
-    int64 size_bytes = 3;
-}
-
-// Placement information
-message ShardPlacement {
-    ShardMetadata shard = 1;
-    NodeId node = 2;
-}
-
 message HeartbeatInfo {
   string node_id    = 1;
   int64  timestamp  = 2;
