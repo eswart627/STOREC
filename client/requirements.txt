@@ -1,0 +1,9 @@
+grpcio
+grpcio-tools
+protobuf
+PyYAML
+python-dotenv
+reedsolo
+tenacity
+tqdm
+colorlog

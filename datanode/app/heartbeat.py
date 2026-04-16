@@ -58,7 +58,8 @@ class HeartbeatManager:
                     
                     time.sleep(self.base_interval)
 
-            except Exception:
+            except Exception as e:
+                print(e)
                 failed_attempts += 1
                 current_time = time.time()
                 
