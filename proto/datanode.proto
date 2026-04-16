@@ -5,6 +5,7 @@ package proto;
 import "proto/common.proto";
 
 service DataNodeService {
+    
     // all methods only invoked by clientfor block ops
   rpc WriteBlock(stream WriteBlockRequest)
   returns (WriteBlockResponse);
