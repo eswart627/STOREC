@@ -5,7 +5,7 @@ import warnings
 
 from proto import namenode_pb2 as proto_dot_namenode__pb2
 
-GRPC_GENERATED_VERSION = '1.78.0'
+GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -59,8 +59,8 @@ class NameNodeServiceStub(object):
                 request_serializer=proto_dot_namenode__pb2.DeleteFileRequest.SerializeToString,
                 response_deserializer=proto_dot_namenode__pb2.DeleteFileResponse.FromString,
                 _registered_method=True)
-        self.Heartbeat = channel.unary_unary(
-                '/proto.NameNodeService/Heartbeat',
+        self.SendHeartbeat = channel.unary_unary(
+                '/proto.NameNodeService/SendHeartbeat',
                 request_serializer=proto_dot_namenode__pb2.HeartbeatRequest.SerializeToString,
                 response_deserializer=proto_dot_namenode__pb2.HeartbeatResponse.FromString,
                 _registered_method=True)
@@ -75,9 +75,7 @@ class NameNodeServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def RegisterDataNode(self, request, context):
-        """invoked by datanode for announcement
-        namenode recording the cluster
-        (node_id, address, port, capacity)
+        """DataNode registration
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -124,9 +122,8 @@ class NameNodeServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def Heartbeat(self, request, context):
-        """invoked by DN
-        namenode accesses the record/registry
+    def SendHeartbeat(self, request, context):
+        """Heartbeat
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -166,8 +163,8 @@ def add_NameNodeServiceServicer_to_server(servicer, server):
                     request_deserializer=proto_dot_namenode__pb2.DeleteFileRequest.FromString,
                     response_serializer=proto_dot_namenode__pb2.DeleteFileResponse.SerializeToString,
             ),
-            'Heartbeat': grpc.unary_unary_rpc_method_handler(
-                    servicer.Heartbeat,
+            'SendHeartbeat': grpc.unary_unary_rpc_method_handler(
+                    servicer.SendHeartbeat,
                     request_deserializer=proto_dot_namenode__pb2.HeartbeatRequest.FromString,
                     response_serializer=proto_dot_namenode__pb2.HeartbeatResponse.SerializeToString,
             ),
@@ -323,7 +320,7 @@ class NameNodeService(object):
             _registered_method=True)
 
     @staticmethod
-    def Heartbeat(request,
+    def SendHeartbeat(request,
             target,
             options=(),
             channel_credentials=None,
@@ -336,7 +333,7 @@ class NameNodeService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/proto.NameNodeService/Heartbeat',
+            '/proto.NameNodeService/SendHeartbeat',
             proto_dot_namenode__pb2.HeartbeatRequest.SerializeToString,
             proto_dot_namenode__pb2.HeartbeatResponse.FromString,
             options,

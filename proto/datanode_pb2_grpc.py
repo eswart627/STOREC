@@ -5,7 +5,7 @@ import warnings
 
 from proto import datanode_pb2 as proto_dot_datanode__pb2
 
-GRPC_GENERATED_VERSION = '1.78.0'
+GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -34,12 +34,12 @@ class DataNodeServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.WriteBlock = channel.unary_unary(
+        self.WriteBlock = channel.stream_unary(
                 '/proto.DataNodeService/WriteBlock',
                 request_serializer=proto_dot_datanode__pb2.WriteBlockRequest.SerializeToString,
                 response_deserializer=proto_dot_datanode__pb2.WriteBlockResponse.FromString,
                 _registered_method=True)
-        self.ReadBlock = channel.unary_unary(
+        self.ReadBlock = channel.unary_stream(
                 '/proto.DataNodeService/ReadBlock',
                 request_serializer=proto_dot_datanode__pb2.ReadBlockRequest.SerializeToString,
                 response_deserializer=proto_dot_datanode__pb2.ReadBlockResponse.FromString,
@@ -54,7 +54,7 @@ class DataNodeServiceStub(object):
 class DataNodeServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def WriteBlock(self, request, context):
+    def WriteBlock(self, request_iterator, context):
         """all methods only invoked by clientfor block ops
         (block_id, data_bytes, block_size)
         (Status, NodeId, block_id)
@@ -83,12 +83,12 @@ class DataNodeServiceServicer(object):
 
 def add_DataNodeServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'WriteBlock': grpc.unary_unary_rpc_method_handler(
+            'WriteBlock': grpc.stream_unary_rpc_method_handler(
                     servicer.WriteBlock,
                     request_deserializer=proto_dot_datanode__pb2.WriteBlockRequest.FromString,
                     response_serializer=proto_dot_datanode__pb2.WriteBlockResponse.SerializeToString,
             ),
-            'ReadBlock': grpc.unary_unary_rpc_method_handler(
+            'ReadBlock': grpc.unary_stream_rpc_method_handler(
                     servicer.ReadBlock,
                     request_deserializer=proto_dot_datanode__pb2.ReadBlockRequest.FromString,
                     response_serializer=proto_dot_datanode__pb2.ReadBlockResponse.SerializeToString,
@@ -110,7 +110,7 @@ class DataNodeService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def WriteBlock(request,
+    def WriteBlock(request_iterator,
             target,
             options=(),
             channel_credentials=None,
@@ -120,8 +120,8 @@ class DataNodeService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
+        return grpc.experimental.stream_unary(
+            request_iterator,
             target,
             '/proto.DataNodeService/WriteBlock',
             proto_dot_datanode__pb2.WriteBlockRequest.SerializeToString,
@@ -147,7 +147,7 @@ class DataNodeService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(
+        return grpc.experimental.unary_stream(
             request,
             target,
             '/proto.DataNodeService/ReadBlock',

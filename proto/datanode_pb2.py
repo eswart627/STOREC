@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from proto import common_pb2 as proto_dot_common__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14proto/datanode.proto\x12\x05proto\x1a\x12proto/common.proto\"0\n\x11WriteBlockRequest\x12\x1b\n\x05\x62lock\x18\x01 \x01(\x0b\x32\x0c.proto.Block\"b\n\x12WriteBlockResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status\x12\x1b\n\x04node\x18\x02 \x01(\x0b\x32\r.proto.NodeId\x12\x10\n\x08\x62lock_id\x18\x03 \x01(\t\"$\n\x10ReadBlockRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\"O\n\x11ReadBlockResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status\x12\x1b\n\x05\x62lock\x18\x02 \x01(\x0b\x32\x0c.proto.Block\"&\n\x12\x44\x65leteBlockRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\"c\n\x13\x44\x65leteBlockResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status\x12\x1b\n\x04node\x18\x02 \x01(\x0b\x32\r.proto.NodeId\x12\x10\n\x08\x62lock_id\x18\x03 \x01(\t2\xda\x01\n\x0f\x44\x61taNodeService\x12\x41\n\nWriteBlock\x12\x18.proto.WriteBlockRequest\x1a\x19.proto.WriteBlockResponse\x12>\n\tReadBlock\x12\x17.proto.ReadBlockRequest\x1a\x18.proto.ReadBlockResponse\x12\x44\n\x0b\x44\x65leteBlock\x12\x19.proto.DeleteBlockRequest\x1a\x1a.proto.DeleteBlockResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14proto/datanode.proto\x12\x05proto\x1a\x12proto/common.proto\"0\n\x11WriteBlockRequest\x12\x1b\n\x05\x62lock\x18\x01 \x01(\x0b\x32\x0c.proto.Block\"b\n\x12WriteBlockResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status\x12\x1b\n\x04node\x18\x02 \x01(\x0b\x32\r.proto.NodeId\x12\x10\n\x08\x62lock_id\x18\x03 \x01(\t\"$\n\x10ReadBlockRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\"O\n\x11ReadBlockResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status\x12\x1b\n\x05\x62lock\x18\x02 \x01(\x0b\x32\x0c.proto.Block\"&\n\x12\x44\x65leteBlockRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\"c\n\x13\x44\x65leteBlockResponse\x12\x1d\n\x06status\x18\x01 \x01(\x0b\x32\r.proto.Status\x12\x1b\n\x04node\x18\x02 \x01(\x0b\x32\r.proto.NodeId\x12\x10\n\x08\x62lock_id\x18\x03 \x01(\t2\xde\x01\n\x0f\x44\x61taNodeService\x12\x43\n\nWriteBlock\x12\x18.proto.WriteBlockRequest\x1a\x19.proto.WriteBlockResponse(\x01\x12@\n\tReadBlock\x12\x17.proto.ReadBlockRequest\x1a\x18.proto.ReadBlockResponse0\x01\x12\x44\n\x0b\x44\x65leteBlock\x12\x19.proto.DeleteBlockRequest\x1a\x1a.proto.DeleteBlockResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -45,5 +45,5 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_DELETEBLOCKRESPONSE']._serialized_start=360
   _globals['_DELETEBLOCKRESPONSE']._serialized_end=459
   _globals['_DATANODESERVICE']._serialized_start=462
-  _globals['_DATANODESERVICE']._serialized_end=680
+  _globals['_DATANODESERVICE']._serialized_end=684
 # @@protoc_insertion_point(module_scope)
