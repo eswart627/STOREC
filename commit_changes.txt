@@ -200,3 +200,5 @@ Commit no(17):
         Verified 144 blocks allocated and retrieved with matching checksums
         Confirmed file deletion and database cleanup operations
 Commit 18: Block size configuration
+
+Commit 22: Removed the assigned flag usage from node logic

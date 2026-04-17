@@ -59,7 +59,7 @@ class AllocationManager:
             self.logger.log("DEBUG", f"Node {node_id}: status={node_data['status']}, assigned={node_data.get('assigned', False)}, available={node_data['available']}")
             self.logger.log("DEBUG", f"Node {node_id}: status_ok={status_ok}, not_assigned={not_assigned}, enough_space={enough_space}")
             
-            if status_ok and not_assigned and enough_space:
+            if status_ok and enough_space:
                 available_nodes.append(node_id)
                 self.logger.log("DEBUG", f"Node {node_id} added to available list")
         
