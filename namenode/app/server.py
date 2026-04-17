@@ -89,7 +89,7 @@ class NameNodeService(
                 capacity=request.capacity_bytes,
                 mode=1,
             )
-            self.logger.log("Datanode with ID ", f"{node_id} at {address} (re-registered)")
+            self.logger.log("Datanode with ID ", f"{node_id} at {address} (re-registered)",0)
             return namenode_pb2.RegisterResponse(
                 node_id=node_id,
                 status=common_pb2.Status(
@@ -114,7 +114,8 @@ class NameNodeService(
         self.logger.log(
             "HEARTBEAT_RECEIVED",
             f"node_id={heartbeat.node_id}, timestamp={heartbeat.timestamp}, "
-            f"used_bytes={heartbeat.used_bytes}, free_bytes={heartbeat.free_bytes}"
+            f"used_bytes={heartbeat.used_bytes}, free_bytes={heartbeat.free_bytes}",
+            1
         )
         
         self.registry.heartbeat(heartbeat.node_id)
@@ -159,7 +160,7 @@ class NameNodeService(
         """
 
         file_name=request.file_details.file_name
-        self.logger.log("COMMIT_FILE", f"Committing file {file_name}")
+        self.logger.log("COMMIT_FILE", f"Committing file {file_name}",0)
         file_size=request.file_details.file_size/1024 #kb
         
         conn=get_connection()
@@ -172,10 +173,10 @@ class NameNodeService(
             metadata_id = 0
 
         try:
-            self.logger.log("COMMIT_FILE", f"Committing {len(request.block_ids)} blocks for file {file_name}")
+            self.logger.log("COMMIT_FILE", f"Committing {len(request.block_ids)} blocks for file {file_name}",0)
             self.allocation_manager.commit_block(file_name, request.block_ids, cur)
         except Exception as e:
-            self.logger.log("COMMIT_FILE", f"Failed to commit blocks for file {file_name}: {e}")
+            self.logger.log("COMMIT_FILE", f"Failed to commit blocks for file {file_name}: {e}",0)
             conn.rollback()
             del self.allocation_manager.allocations[file_name]
             return namenode_pb2.CommitFileResponse(
@@ -234,7 +235,7 @@ class NameNodeService(
                 cur.execute(query)
             self.allocation_manager.delete_blocks(blocks,cur)
             conn.commit()
-            self.logger.log("DELETE_FILE", f"Deleting file {request.file_details.file_name}")
+            self.logger.log("DELETE_FILE", f"Deleting file {request.file_details.file_name}",0)
             return namenode_pb2.DeleteFileResponse(
                 status=common_pb2.Status(
                     success=True,
@@ -244,7 +245,7 @@ class NameNodeService(
 
         except Exception as e:
             conn.rollback()
-            self.logger.log("DELETE_FILE", f"Failed to delete file {request.file_details.file_name}: {e}")
+            self.logger.log("DELETE_FILE", f"Failed to delete file {request.file_details.file_name}: {e}",0)
             return namenode_pb2.DeleteFileResponse(
                 status=common_pb2.Status(
                     success=False,
@@ -263,13 +264,13 @@ class NameNodeService(
         Returns:
             ListFilesResponse object.
         """
-        self.logger.log("LIST_FILES", "Listing files...\n")
+        self.logger.log("LIST_FILES", "Listing files...\n",3)
         conn=get_connection()
         cur=conn.cursor()
         cur.execute("SELECT * FROM file_table")
         files=cur.fetchall()
         for i,row in enumerate(files):
-            self.logger.log(f"File_{i}", f"Files: {row}")
+            self.logger.log(f"File_{i}", f"Files: {row}",3)
         return namenode_pb2.ListFilesResponse(
             status=common_pb2.Status(
                 success=True,
@@ -289,7 +290,7 @@ class NameNodeService(
             GetFileMetadataResponse object.
         """
 
-        self.logger.log("GET_FILE_METADATA", f"Getting metadata for file {request.file_details.file_name}")
+        self.logger.log("GET_FILE_METADATA", f"Getting metadata for file {request.file_details.file_name}",0)
         conn=get_connection()
         cur=conn.cursor()
         cur.execute("SELECT data_blocks,parity_blocks FROM file_table WHERE file_name=%s",(request.file_details.file_name))
@@ -371,7 +372,8 @@ class NameNodeServer:
         current_time = datetime.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%H:%M")  # Format time as HH:MM in IST
         self.logger.log(
             "SERVER_START",
-            f"namenode_{current_time}",
+            f"namenode_{current_time}"
+            ,0
         )
 
         print("gRPC server started and waiting for termination", flush=True)  # Debug print to indicate server is running
@@ -397,4 +399,4 @@ class NameNodeServer:
         # for existing RPCs to complete.
         self.server.stop(grace=grace_period)
         
-        self.logger.log("SERVER_STOP", f"Graceful shutdown completed ({grace_period}s)")
+        self.logger.log("SERVER_STOP", f"Graceful shutdown completed ({grace_period}s)",0)

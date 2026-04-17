@@ -202,3 +202,5 @@ Commit no(17):
 Commit 18: Block size configuration
 
 Commit 22: Removed the assigned flag usage from node logic
+
+Commit 23: Added log seperation as maintenance,file,main,debug

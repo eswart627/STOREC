@@ -48,22 +48,22 @@ class AllocationManager:
             list[str] - The list of available node IDs
         """
         available_nodes: List[str] = []
-        self.logger.log("DEBUG", f"Looking for nodes with block_size={self.block_size}")
-        self.logger.log("DEBUG", f"Total nodes in registry: {len(self.registry.nodes)}")
+        self.logger.log("DEBUG", f"Looking for nodes with block_size={self.block_size}",2)
+        self.logger.log("DEBUG", f"Total nodes in registry: {len(self.registry.nodes)}",2)
         
         for node_id, node_data in self.registry.nodes.items():
             status_ok = node_data['status'] == "ACTIVE"
             not_assigned = not node_data.get('assigned', False)
             enough_space = node_data['available'] >= self.block_size
             
-            self.logger.log("DEBUG", f"Node {node_id}: status={node_data['status']}, assigned={node_data.get('assigned', False)}, available={node_data['available']}")
-            self.logger.log("DEBUG", f"Node {node_id}: status_ok={status_ok}, not_assigned={not_assigned}, enough_space={enough_space}")
+            self.logger.log("DEBUG", f"Node {node_id}: status={node_data['status']}, assigned={node_data.get('assigned', False)}, available={node_data['available']}",2)
+            self.logger.log("DEBUG", f"Node {node_id}: status_ok={status_ok}, not_assigned={not_assigned}, enough_space={enough_space}",2)
             
             if status_ok and enough_space:
                 available_nodes.append(node_id)
-                self.logger.log("DEBUG", f"Node {node_id} added to available list")
+                self.logger.log("DEBUG", f"Node {node_id} added to available list",2)
         
-        self.logger.log("DEBUG", f"Available nodes count: {len(available_nodes)}")
+        self.logger.log("DEBUG", f"Available nodes count: {len(available_nodes)}",2)
         return available_nodes
 
     def allocate(self, file_details,no_of_stripes,no_of_shards)->List[common_pb2.BlockGroups]:

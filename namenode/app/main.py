@@ -41,7 +41,7 @@ def main(flag:int=0) -> None:
     print("Initializing DataNode registry", flush=True)  # Debug print to indicate registry initialization
     registry = DataNodeRegistry()
     restored_count = registry.load_state()
-    logger.log("REGISTRY_RESTORED", f"Loaded {restored_count} DataNode record(s) from DB")
+    logger.log("REGISTRY_RESTORED", f"Loaded {restored_count} DataNode record(s) from DB",0)
 
     print("Initializing NameNode server", flush=True)  # Debug print to indicate server initialization
     server = NameNodeServer(
