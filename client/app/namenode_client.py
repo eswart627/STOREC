@@ -3,7 +3,6 @@ import grpc
 import proto.namenode_pb2 as namenode_pb2
 import proto.namenode_pb2_grpc as namenode_pb2_grpc
 import proto.common_pb2 as common_pb2
-import proto.common_pb2_grpc as common_pb2_grpc
 
 from .config_loader import (
     NAMENODE_ADDRESS,
@@ -15,27 +14,16 @@ from .config_loader import (
 
 
 class NameNodeClient:
-
     def __init__(self):
-
         target = f"{NAMENODE_ADDRESS}:{NAMENODE_PORT}"
-
-        self.channel = grpc.insecure_channel(
-            target
-        )
-
+        self.channel = grpc.insecure_channel(target)
         self.stub = (
             namenode_pb2_grpc.NameNodeServiceStub(
                 self.channel
             )
         )
 
-    def allocate_blocks(
-        self,
-        file_name,
-        file_size
-    ):
-
+    def allocate_blocks(self,file_name,file_size):
         stripe_size = K * BLOCK_SIZE
 
         file_meta = common_pb2.File(
@@ -50,19 +38,10 @@ class NameNodeClient:
             parity_blocks_m=M
         )
 
-        response = self.stub.AllocateBlocks(
-            request
-        )
-
+        response = self.stub.AllocateBlocks(request)
         return response
 
-    def commit_file(
-        self,
-        file_name,
-        file_size,
-        block_ids
-    ):
-
+    def commit_file(self,file_name,file_size,block_ids):
         file_meta = common_pb2.File(
             file_name=file_name,
             file_size=file_size
@@ -74,6 +53,10 @@ class NameNodeClient:
             block_ids=block_ids
         )
 
-        self.stub.CommitFile(
-            request
-        )
+        response = self.stub.CommitFile(request)
+
+        if not response.status.success:
+            raise Exception(
+                f"Commit failed: "
+                f"{response.status.message}"
+            )

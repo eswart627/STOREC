@@ -6,54 +6,60 @@ import pytz
 from proto import common_pb2
 from proto import namenode_pb2
 
-
-# FIXED: storage path now depends on port
 class DataNodeIdentity:
-    def __init__(self, port, storage_dir="./data"):
-        self.storage_path = os.path.join(storage_dir, f"node_id_{port}.txt")
+    def __init__(self, base_storage_dir, port):
+        self.base_storage_dir = base_storage_dir
+        self.node_dir = os.path.join(
+            base_storage_dir,
+            f"node_{port}"
+        )
+        self.meta_path = os.path.join(
+            self.node_dir,
+            "node.meta"
+        )
 
-    def get_id(self):
-        if os.path.exists(self.storage_path):
-            with open(self.storage_path, "r") as f:
-                return f.read().strip()
+    def find_existing_id(self):
+        if not os.path.exists(self.meta_path):
+            return None
+        with open(self.meta_path, "r") as f:
+            for line in f:
+                if line.startswith("node_id="):
+                    return line.split("=")[1].strip()
         return None
 
     def save_id(self, node_id):
-        os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
-        with open(self.storage_path, "w") as f:
-            f.write(node_id)
-            
+        os.makedirs(
+            self.node_dir,
+            exist_ok=True
+        )
+        with open(self.meta_path, "w") as f:
+            f.write(f"node_id={node_id}\n")
+        return self.node_dir
 
 class RegistrationManager:
-    def __init__(self, rpc_client, config, logger):
+    def __init__(self, rpc_client, config):
         self.rpc = rpc_client
         self.config = config
-        self.logger = logger
 
     def register(self):
-        # FIX: pass port → unique identity per datanode
-        identity_store = DataNodeIdentity(port=self.config.port)
-
-        existing_id = identity_store.get_id()
-        
-        node = common_pb2.Node(
-            
+        identity_store = DataNodeIdentity(
+            base_storage_dir = self.config.data_dir,
+            port = self.config.port
+        )
+        existing_id = identity_store.find_existing_id() 
+        node = common_pb2.Node( 
             hostname=self.config.hostname,
             port=self.config.port
         )
-
         request = namenode_pb2.RegisterRequest(
             node=node,
             node_id=existing_id if existing_id else "",
             capacity_bytes=self.config.capacity_bytes
         )
-
         while True:
             try:
-                print("DEBUG: sending node_id =", existing_id)  # optional debug
-
+                print("DEBUG: sending node_id =", existing_id)
                 response = self.rpc.stub.RegisterDataNode(request)
-
                 if response.status.success:
                     assigned_id = response.node_id
 
@@ -61,19 +67,19 @@ class RegistrationManager:
                     identity_store.save_id(assigned_id)
 
                     self.config.node_id = assigned_id
-                
+                    self.config.node_storage_dir = identity_store.node_dir
+
                     current_time = datetime.datetime.now(
                         pytz.timezone("Asia/Kolkata")
                     ).strftime("%H:%M:%S")
 
-                    self.logger.log(
+                    print(
                         "REGISTER_SUCCESS",
                         f"ID: {assigned_id} at {current_time}"
                     )
-
                     return assigned_id
 
             except Exception as e:
-                print(f"!!! REGISTRATION FAILED: {e}", flush=True)
-                self.logger.log("REGISTER_FAILED", str(e))
+                print(f"ERROR: REGISTRATION FAILED: {e}", flush=True)
+                print("REGISTER_FAILED", str(e))
                 time.sleep(5)
