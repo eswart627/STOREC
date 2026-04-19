@@ -2,19 +2,19 @@ syntax = "proto3";
 
 package proto;
 
-import "common.proto";
+import "proto/common.proto";
 
 service DataNodeService {
     
     // all methods only invoked by clientfor block ops
-  rpc WriteBlock(WriteBlockRequest)
+  rpc WriteBlock(stream WriteBlockRequest)
   returns (WriteBlockResponse);
     // (block_id, data_bytes, block_size)
     // (Status, NodeId, block_id)
     // (Block) => (Status, NodeId, block_id)
 
   rpc ReadBlock(ReadBlockRequest)
-  returns (ReadBlockResponse);
+  returns (stream ReadBlockResponse);
     // (block_id)
     // (Status, Block)
 

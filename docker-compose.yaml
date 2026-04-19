@@ -1,0 +1,35 @@
+name : Datanodes-Cluster
+services:
+  datanode1:
+    build:
+      context: .
+      dockerfile: datanode/Dockerfile
+    container_name: datanode1
+    env_file: datanode/.env
+    environment:
+      - NODE_PORT=50052
+      - NODE_HOSTNAME=datanode1 # Useful if they are on the same docker network
+    ports:
+      - "50052:50052"
+    volumes:
+      - dn1_storage:/data
+
+  datanode2:
+    build:
+      context: .
+      dockerfile: datanode/Dockerfile
+    container_name: datanode2
+    env_file: datanode/.env
+    environment:
+      - NODE_PORT=50053
+      - NODE_HOSTNAME=datanode2
+    ports:
+      - "50053:50053"
+    volumes:
+      - dn2_storage:/data
+
+volumes:
+  dn1_storage:
+    driver: local
+  dn2_storage:
+    driver: local

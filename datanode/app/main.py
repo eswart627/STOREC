@@ -1,7 +1,6 @@
 import os
 import time
 from dotenv import load_dotenv
-#from STOREC.datanode.app import heartbeat
 from datanode.app.config_loader import Config
 from datanode.app.logger import Logger
 from datanode.app.storage_manager import StorageManager
@@ -11,42 +10,39 @@ from datanode.app.registration import RegistrationManager
 from datanode.app.heartbeat import HeartbeatManager
 
 def main():
-    # This gets the 'storec' directory where you run the command from
     base_dir = os.getcwd()
     load_dotenv(os.path.join(base_dir, "datanode", ".env"))
-
-    # 1. Load Config
+    print(f"Base directory: {base_dir}", flush=True)  # Debug print to check base_dir value
+    
+    # Load Config
     config_path = os.path.join(base_dir, "datanode", "config", "datanode.config")
     config = Config(path=config_path)
+    print("Config loaded successfully", flush=True)
 
-    # 2. Initialize Logger 
-    # REMOVED (base_dir) because the new Logger handles its own path!
-    logger = Logger() 
-    
-    logger.log(
-        "STARTUP", 
-        f"node={config.node_id}"
-    )
-
-    # 3. Setup Storage
-    storage_root = os.path.join(base_dir, "datanode", config.data_dir)
-    storage = StorageManager(base_dir=storage_root)
-    storage.initialize()
-    logger.log("STORAGE_INIT", storage_root)
-
-    # 4. Networking & Server
-    rpc = RPCClient(config, logger)
+    # Networking & Server
+    print("Connecting to NameNode", flush=True)
+    rpc = RPCClient(config)
     rpc.connect()
 
     registration = RegistrationManager(
         rpc_client=rpc,
-        config=config,
-        logger=logger
+        config=config
     )
     registration.register()
     print(f"DEBUG: Registration complete. Assigned ID: {config.node_id}", flush=True)
 
-    print("Starting DataNode server", flush=True)  # Debug print before server starts
+    # storage
+    storage_root = config.node_storage_dir
+    print("Initializing stroage at: {storage_root}", flush=True)
+    storage = StorageManager(base_dir=storage_root)
+    storage.initialize()
+
+    # logger
+    logger = Logger(base_dir=storage_root)
+    logger.log("STARTUP", f"node={config.node_id}")
+
+    # start server
+    print("Starting DataNode server", flush=True)  
     server = DataNodeServer(
         config=config, 
         logger=logger,
@@ -54,7 +50,8 @@ def main():
     )
     server.start()
 
-    print("Starting HeartbeatManager", flush=True)  # Debug print before heartbeat starts
+    # start heartbeat
+    print("Starting HeartbeatManager", flush=True) 
     heartbeat = HeartbeatManager(
     rpc_client=rpc,
     config=config,
@@ -62,11 +59,11 @@ def main():
     storage=storage
     )
     heartbeat.start()
-    
     print("DataNode is fully operational. Press Ctrl+C to stop.", flush=True)
+    
     try:
         while True:
-            time.sleep(1)  # Just sit here and wait
+            time.sleep(1) 
     except KeyboardInterrupt:
         print("\nShutting down DataNode...", flush=True)
         server.stop()
