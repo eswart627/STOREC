@@ -1,8 +1,7 @@
 import time
 import threading
 import sys
-import os # Added for hard process termination
-import shutil
+import os 
 
 from proto import namenode_pb2
 from proto import common_pb2 
@@ -32,10 +31,10 @@ class HeartbeatManager:
         print(self.config.node_id, flush=True)  # Debug print to check node_id value
         while self.running:
             try:
-                
-                total, used, free = shutil.disk_usage("/data")
-                
-                heartbeat_data = common_pb2.Heartbeat(
+                total_capacity = self.config.capacity_bytes
+                used = self.storage.get_used_bytes()
+                free = max(0, total_capacity - used)
+                heartbeat_data = common_pb2.HeartbeatInfo(
                     node_id = self.config.node_id,
                     timestamp = int(time.time()),
                     used_bytes = used, 
@@ -55,10 +54,11 @@ class HeartbeatManager:
                     failed_attempts = 0
                     first_failure_time = None
                     self.logger.log("HEARTBEAT_SENT", f"ACK: {response.status.message}")
-                    
+                
                     time.sleep(self.base_interval)
 
-            except Exception:
+            except Exception as e:
+                print(e)
                 failed_attempts += 1
                 current_time = time.time()
                 
@@ -88,3 +88,4 @@ class HeartbeatManager:
                     self.logger.log("HEARTBEAT_RETRYING", f"Attempt {failed_attempts}, still no connection.")
 
                 time.sleep(backoff)
+            

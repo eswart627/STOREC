@@ -1,0 +1,11 @@
+argparse
+colorlog
+grpcio
+grpcio-tools
+numpy
+protobuf
+PyYAML
+python-dotenv
+reedsolo
+tenacity
+tqdm
