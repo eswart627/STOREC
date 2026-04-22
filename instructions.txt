@@ -62,7 +62,19 @@ To check the allocation logic:
     (py -m namenode.db_manager.nuke) [Clears the DB if you want without having to kill docker image]    
 
 
+<<<<<<< Updated upstream
     To run client: 
      python -m client.client_stream "C:\Users\pichi\Downloads\ISS-.pdf" --ip 192.168.137.161 --port 50052
      python -m client.read_client "ISS-.pdf" --ip 192.168.137.161 --port 50052
      python -m client.delete_client "ISS-.pdf" --ip 192.168.137.161 --port 50052
+=======
+To run init_dns:
+      python -m scripts.init_dns --count 4 --start-port 50052
+    -- count : # of DN instances starting from port 50052. (Default: 3)
+    -- port  : starting port nunmber, then increments by for each instances (Default: 50052)
+    !!! This cmd creates "count" # of terminal insances seperately
+
+To run client:
+    python -m client.app.client file_path --mode single
+    -- mode: [single, parallel] for pipeline mechanism (Default: single)
+>>>>>>> Stashed changes

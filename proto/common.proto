@@ -34,6 +34,7 @@ message BlockGroups{
   repeated Placement placement = 2;
 }
 
+<<<<<<< Updated upstream
 message Block {
   string block_id   = 1;
   int64  size_bytes = 2;
@@ -47,4 +48,17 @@ message Heartbeat {
     int64 timestamp = 2;
     int64 used_bytes = 3;
     int64 free_bytes = 4;
+=======
+message HeartbeatInfo {
+  string node_id    = 1;
+  int64  timestamp  = 2;
+  int64  used_bytes = 3;
+  int64  free_bytes = 4;
+}
+
+//To send metrics from datanode to client
+message Metrics{
+  float latency_seconds = 1;
+  float throughput_mbs = 2;
+>>>>>>> Stashed changes
 }
