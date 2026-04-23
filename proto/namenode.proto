@@ -41,7 +41,6 @@ service NameNodeService {
     // (File)
     // (success, message, block_ids[])
 
-
     // Heartbeat
     rpc SendHeartbeat (HeartbeatRequest) 
     returns (HeartbeatResponse);
@@ -49,7 +48,25 @@ service NameNodeService {
     rpc ListFiles (ListFilesRequest)
     returns (ListFilesResponse);
 
+    rpc GetClusterStatus (ClusterStatusRequest) 
+    returns (ClusterStatusResponse);
 
+
+}
+
+message ClusterStatusRequest {}
+
+message ClusterStatusResponse {
+    message NodeInfo {
+        string node_id = 1;
+        string hostname = 2;
+        int32 port = 3;
+        string status = 4;            // "ACTIVE" or "INACTIVE"
+        float storage_used_pct = 5; 
+        int64 last_heartbeat = 6;
+    }
+    bool namenode_active = 1;
+    repeated NodeInfo nodes = 2;
 }
 
 
