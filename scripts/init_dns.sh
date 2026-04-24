@@ -85,10 +85,21 @@ start_datanode() {
     export NODE_HOSTNAME="$hostname"
     export DATA_DIR="$data_dir"
     
-    # Start DataNode in separate screen session
-    screen -dmS "datanode_$port" $PYTHON_CMD -m datanode.app.main
+    # Detect OS for background command
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || uname -s | grep -q "MINGW\|CYGWIN"; then
+        BG_CMD="nohup"
+        BG_ARGS="> datanode_$port.log 2>&1 &"
+        BG_ECHO="DataNode $port started in background (PID: $!)"
+    else
+        BG_CMD="screen -dmS datanode_$port"
+        BG_ARGS=""
+        BG_ECHO="DataNode $port started in screen session 'datanode_$port'"
+    fi
     
-    echo "DataNode $port started in screen session 'datanode_$port'"
+    # Start DataNode
+    $BG_CMD $PYTHON_CMD -m datanode.app.main $BG_ARGS
+    
+    echo "$BG_ECHO"
 }
 
 # Main execution

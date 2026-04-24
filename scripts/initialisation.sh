@@ -54,11 +54,24 @@ echo "Initializing project..."
 echo "DataNodes: $COUNT starting from port $START_PORT"
 echo "Config file: $CONFIG_FILE"
 
-source myenv/bin/activate
+#source myenv/bin/activate
 
 # Detect python command
 PYTHON_CMD=$(detect_python)
 echo "Using Python command: $PYTHON_CMD"
+
+# Detect OS for background command
+if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || uname -s | grep -q "MINGW\|CYGWIN"; then
+    BG_CMD="nohup"
+    BG_ARGS="> namenode.log 2>&1 &"
+    BG_ECHO="NameNode started in background (PID: $!)"
+    FINAL_ECHO="NameNode log: namenode.log\nDataNode logs: datanode_<port>.log"
+else
+    BG_CMD="screen -dmS namenode"
+    BG_ARGS=""
+    BG_ECHO="NameNode started in screen session 'namenode'"
+    FINAL_ECHO="To attach to NameNode: screen -r namenode\nTo attach to a DataNode: screen -r datanode_<port>\nTo list all screen sessions: screen -ls"
+fi
 
 # Initialize database unless skipped
 if [[ "$SKIP_DB" == "false" ]]; then
@@ -68,9 +81,9 @@ else
     echo "Skipping database initialization..."
 fi
 
-# Start NameNode in screen session
-screen -dmS namenode $PYTHON_CMD -m namenode.app.main
-echo "NameNode started in screen session 'namenode'"
+# Start NameNode
+$BG_CMD $PYTHON_CMD -m namenode.app.main $BG_ARGS
+echo "$BG_ECHO"
 
 sleep 3
 
@@ -78,6 +91,4 @@ sleep 3
 scripts/init_dns.sh --count "$COUNT" --start-port "$START_PORT" --config "$CONFIG_FILE"
 
 echo "Initialization complete!"
-echo "To attach to NameNode: screen -r namenode"
-echo "To attach to a DataNode: screen -r datanode_<port>"
-echo "To list all screen sessions: screen -ls"
+echo -e "$FINAL_ECHO"
