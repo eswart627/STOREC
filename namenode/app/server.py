@@ -48,9 +48,14 @@ class NameNodeService(
         node_id=request.node_id
         node = request.node
         address=f"{node.hostname}:{node.port}"
+        
+        self.logger.log("REGISTRATION_REQUEST", f"Received registration from {address} with node_id={node_id or 'None'}", 2)
+        
         if not node_id:
+            self.logger.log("NEW_NODE_REGISTRATION", f"New node registration attempt from {address}", 2)
             if self.registry.lookup.get(address):
                 existing_node_id = self.registry.lookup[address]
+                self.logger.log("NODE_REACTIVATION", f"Reactivating existing node {existing_node_id} at {address}", 0)
                 self.registry.register(
                     node_id=existing_node_id,
                     hostname=node.hostname,
@@ -66,7 +71,7 @@ class NameNodeService(
                     )
                 )
             else:
-                
+                self.logger.log("NEW_NODE_ASSIGNMENT", f"Assigning new node ID to {address} with capacity {request.capacity_bytes}", 0)
                 node_id=self.registry.register(
                     node_id=None,
                     hostname=node.hostname,
@@ -74,6 +79,7 @@ class NameNodeService(
                     capacity=request.capacity_bytes,
                     mode=0,
                 )
+                self.logger.log("NODE_ASSIGNED", f"New node assigned ID: {node_id} at {address}", 0)
                 return namenode_pb2.RegisterResponse(
                     node_id=node_id,
                     status=common_pb2.Status(
@@ -82,6 +88,7 @@ class NameNodeService(
                     )
                 )
         else:
+            self.logger.log("EXISTING_NODE_REGISTRATION", f"Existing node {node_id} re-registering from {address}", 2)
             self.registry.register(
                 node_id=node_id,
                 hostname=node.hostname,
@@ -89,12 +96,12 @@ class NameNodeService(
                 capacity=request.capacity_bytes,
                 mode=1,
             )
-            self.logger.log("Datanode with ID ", f"{node_id} at {address} (re-registered)",0)
+            self.logger.log("NODE_REACTIVATION", f"Node {node_id} at {address} re-activated", 0)
             return namenode_pb2.RegisterResponse(
                 node_id=node_id,
                 status=common_pb2.Status(
                     success=True,
-                    message="Heartbeat Recorded",
+                    message="Re-registered",
                 )
             )
         
@@ -118,13 +125,12 @@ class NameNodeService(
             1
         )
         
-        # self.registry.heartbeat(heartbeat.node_id)
         
         self.registry.heartbeat(
-        heartbeat.node_id, 
-        used=heartbeat.used_bytes, 
-        available=heartbeat.free_bytes
-                     )
+            heartbeat.node_id, 
+            used=heartbeat.used_bytes, 
+            available=heartbeat.free_bytes
+        )
         return namenode_pb2.HeartbeatResponse(
             status=common_pb2.Status(
                 success=True, 
@@ -320,10 +326,6 @@ class NameNodeService(
             block_groups=block_groups
             
         )
-        
-    # server.py -> NameNodeService class
-
-    # In server.py, inside NameNodeService class
     def GetClusterStatus(self, request, context):
         try:
             nodes_dict = self.registry.list_nodes()

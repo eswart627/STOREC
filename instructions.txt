@@ -75,3 +75,31 @@ To run init_dns:
 To run client:
     python -m client.app.client file_path --mode single
     -- mode: [single, parallel] for pipeline mechanism (Default: single)
+
+To run web app:
+  uvicorn client.WEB-APP.main:app --reload --port 8000
+  uvicorn client.WEB-APP.main:app --log-level warning --reload --port 8000
+
+
+
+
+NEW CLI FEATURES (Updated: April 24, 2026 11:39 am):
+
+To run initialisation (Full System Startup - RECOMMENDED):
+      ./scripts/initialisation.sh --count 4 --start-port 50052 --config custom/datanode.config --skip-db
+    -- count   : Number of DataNodes to start (Default: 3)
+    -- port    : Starting port number for DataNodes (Default: 50052)
+    -- config  : Path to DataNode config file (Default: datanode/config/datanode.config)
+    -- skip-db : Skip database initialization for faster restart (Default: false)
+    !!! This starts NameNode + DataNodes in separate screen sessions
+
+To run init_dns (Bash Script Version - RECOMMENDED):
+      ./scripts/init_dns.sh --count 4 --start-port 50052
+    -- config: path to DataNode config file (Default: datanode/config/datanode.config)
+    !!! This cmd creates "count" # of screen sessions for each DataNode
+
+Cross-Platform Compatibility:
+  - All scripts work on Linux, macOS, and Git Bash (Windows)
+  - Automatic Python command detection (python3 vs python)
+  - Screen session management for persistent processes
+  - Supports both relative and absolute proto imports

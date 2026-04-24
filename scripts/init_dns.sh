@@ -60,24 +60,35 @@ read_config() {
     fi
 }
 
+# Function to detect Python command
+detect_python() {
+    if command -v python3 &> /dev/null; then
+        echo "python3"
+    else
+        echo "python"
+    fi
+}
+
 # Function to start a single DataNode
 start_datanode() {
     local port=$1
     local hostname=$2
     local data_dir=$3
     
-    echo "Starting DataNode on port $port"
+    # Detect python command
+    PYTHON_CMD=$(detect_python)
+    
+    echo "Starting DataNode on port $port using $PYTHON_CMD"
     
     # Set environment variables
     export NODE_PORT="$port"
     export NODE_HOSTNAME="$hostname"
     export DATA_DIR="$data_dir"
     
-    # Start DataNode in background
-    python3 -m datanode.app.main &
+    # Start DataNode in separate screen session
+    screen -dmS "datanode_$port" $PYTHON_CMD -m datanode.app.main
     
-    # Store process ID for cleanup
-    echo $! >> /tmp/datanode_pids.txt
+    echo "DataNode $port started in screen session 'datanode_$port'"
 }
 
 # Main execution
@@ -87,9 +98,6 @@ read_config "$CONFIG_FILE"
 echo "Using hostname: $hostname"
 echo "Using data_dir: $data_dir"
 
-# Clear any existing PID file
-> /tmp/datanode_pids.txt
-
 # Start DataNodes
 for ((i=0; i<COUNT; i++)); do
     port=$((START_PORT + i))
@@ -98,18 +106,12 @@ for ((i=0; i<COUNT; i++)); do
 done
 
 echo "All DataNodes started"
-echo "Process IDs saved in /tmp/datanode_pids.txt"
-echo "To stop all DataNodes: kill \$(cat /tmp/datanode_pids.txt)"
-
-# Optional: Wait for user input to stop
-read -p "Press Enter to stop all DataNodes..."
-
-# Stop all DataNodes
-if [[ -f /tmp/datanode_pids.txt ]]; then
-    echo "Stopping all DataNodes..."
-    while read -r pid; do
-        kill "$pid" 2>/dev/null
-    done < /tmp/datanode_pids.txt
-    rm -f /tmp/datanode_pids.txt
-    echo "All DataNodes stopped"
-fi
+echo "Screen sessions created:"
+for ((i=0; i<COUNT; i++)); do
+    port=$((START_PORT + i))
+    echo "  - datanode_$port (port $port)"
+done
+echo ""
+echo "To attach to a DataNode: screen -r datanode_<port>"
+echo "To list all screen sessions: screen -ls"
+echo "To stop all DataNodes: pkill -f 'python3 -m datanode.app.main'"
