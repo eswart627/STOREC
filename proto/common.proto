@@ -46,3 +46,9 @@ message HeartbeatInfo {
   int64  used_bytes = 3;
   int64  free_bytes = 4;
 }
+
+//To send metrics from datanode to client
+message Metrics{
+  float latency_seconds = 1;
+  float throughput_mbs = 2;
+}

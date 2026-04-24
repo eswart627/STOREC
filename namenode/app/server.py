@@ -48,9 +48,14 @@ class NameNodeService(
         node_id=request.node_id
         node = request.node
         address=f"{node.hostname}:{node.port}"
+        
+        self.logger.log("REGISTRATION_REQUEST", f"Received registration from {address} with node_id={node_id or 'None'}", 2)
+        
         if not node_id:
+            self.logger.log("NEW_NODE_REGISTRATION", f"New node registration attempt from {address}", 2)
             if self.registry.lookup.get(address):
                 existing_node_id = self.registry.lookup[address]
+                self.logger.log("NODE_REACTIVATION", f"Reactivating existing node {existing_node_id} at {address}", 0)
                 self.registry.register(
                     node_id=existing_node_id,
                     hostname=node.hostname,
@@ -66,7 +71,7 @@ class NameNodeService(
                     )
                 )
             else:
-                
+                self.logger.log("NEW_NODE_ASSIGNMENT", f"Assigning new node ID to {address} with capacity {request.capacity_bytes}", 0)
                 node_id=self.registry.register(
                     node_id=None,
                     hostname=node.hostname,
@@ -74,6 +79,7 @@ class NameNodeService(
                     capacity=request.capacity_bytes,
                     mode=0,
                 )
+                self.logger.log("NODE_ASSIGNED", f"New node assigned ID: {node_id} at {address}", 0)
                 return namenode_pb2.RegisterResponse(
                     node_id=node_id,
                     status=common_pb2.Status(
@@ -82,6 +88,7 @@ class NameNodeService(
                     )
                 )
         else:
+            self.logger.log("EXISTING_NODE_REGISTRATION", f"Existing node {node_id} re-registering from {address}", 2)
             self.registry.register(
                 node_id=node_id,
                 hostname=node.hostname,
@@ -89,12 +96,12 @@ class NameNodeService(
                 capacity=request.capacity_bytes,
                 mode=1,
             )
-            self.logger.log("Datanode with ID ", f"{node_id} at {address} (re-registered)")
+            self.logger.log("NODE_REACTIVATION", f"Node {node_id} at {address} re-activated", 0)
             return namenode_pb2.RegisterResponse(
                 node_id=node_id,
                 status=common_pb2.Status(
                     success=True,
-                    message="Heartbeat Recorded",
+                    message="Re-registered",
                 )
             )
         
@@ -114,10 +121,16 @@ class NameNodeService(
         self.logger.log(
             "HEARTBEAT_RECEIVED",
             f"node_id={heartbeat.node_id}, timestamp={heartbeat.timestamp}, "
-            f"used_bytes={heartbeat.used_bytes}, free_bytes={heartbeat.free_bytes}"
+            f"used_bytes={heartbeat.used_bytes}, free_bytes={heartbeat.free_bytes}",
+            1
         )
         
-        self.registry.heartbeat(heartbeat.node_id)
+        
+        self.registry.heartbeat(
+            heartbeat.node_id, 
+            used=heartbeat.used_bytes, 
+            available=heartbeat.free_bytes
+        )
         return namenode_pb2.HeartbeatResponse(
             status=common_pb2.Status(
                 success=True, 
@@ -159,7 +172,7 @@ class NameNodeService(
         """
 
         file_name=request.file_details.file_name
-        self.logger.log("COMMIT_FILE", f"Committing file {file_name}")
+        self.logger.log("COMMIT_FILE", f"Committing file {file_name}",0)
         file_size=request.file_details.file_size/1024 #kb
         
         conn=get_connection()
@@ -172,10 +185,10 @@ class NameNodeService(
             metadata_id = 0
 
         try:
-            self.logger.log("COMMIT_FILE", f"Committing {len(request.block_ids)} blocks for file {file_name}")
+            self.logger.log("COMMIT_FILE", f"Committing {len(request.block_ids)} blocks for file {file_name}",0)
             self.allocation_manager.commit_block(file_name, request.block_ids, cur)
         except Exception as e:
-            self.logger.log("COMMIT_FILE", f"Failed to commit blocks for file {file_name}: {e}")
+            self.logger.log("COMMIT_FILE", f"Failed to commit blocks for file {file_name}: {e}",0)
             conn.rollback()
             del self.allocation_manager.allocations[file_name]
             return namenode_pb2.CommitFileResponse(
@@ -234,7 +247,7 @@ class NameNodeService(
                 cur.execute(query)
             self.allocation_manager.delete_blocks(blocks,cur)
             conn.commit()
-            self.logger.log("DELETE_FILE", f"Deleting file {request.file_details.file_name}")
+            self.logger.log("DELETE_FILE", f"Deleting file {request.file_details.file_name}",0)
             return namenode_pb2.DeleteFileResponse(
                 status=common_pb2.Status(
                     success=True,
@@ -244,7 +257,7 @@ class NameNodeService(
 
         except Exception as e:
             conn.rollback()
-            self.logger.log("DELETE_FILE", f"Failed to delete file {request.file_details.file_name}: {e}")
+            self.logger.log("DELETE_FILE", f"Failed to delete file {request.file_details.file_name}: {e}",0)
             return namenode_pb2.DeleteFileResponse(
                 status=common_pb2.Status(
                     success=False,
@@ -263,13 +276,13 @@ class NameNodeService(
         Returns:
             ListFilesResponse object.
         """
-        self.logger.log("LIST_FILES", "Listing files...\n")
+        self.logger.log("LIST_FILES", "Listing files...\n",3)
         conn=get_connection()
         cur=conn.cursor()
         cur.execute("SELECT * FROM file_table")
         files=cur.fetchall()
         for i,row in enumerate(files):
-            self.logger.log(f"File_{i}", f"Files: {row}")
+            self.logger.log(f"File_{i}", f"Files: {row}",3)
         return namenode_pb2.ListFilesResponse(
             status=common_pb2.Status(
                 success=True,
@@ -289,7 +302,7 @@ class NameNodeService(
             GetFileMetadataResponse object.
         """
 
-        self.logger.log("GET_FILE_METADATA", f"Getting metadata for file {request.file_details.file_name}")
+        self.logger.log("GET_FILE_METADATA", f"Getting metadata for file {request.file_details.file_name}",0)
         conn=get_connection()
         cur=conn.cursor()
         cur.execute("SELECT data_blocks,parity_blocks FROM file_table WHERE file_name=%s",(request.file_details.file_name))
@@ -313,7 +326,34 @@ class NameNodeService(
             block_groups=block_groups
             
         )
+    def GetClusterStatus(self, request, context):
+        try:
+            nodes_dict = self.registry.list_nodes()
+            node_infos = []
 
+            for node_id, data in nodes_dict.items():
+                used = data.get("used", 0)
+                capacity = data.get("capacity", 0)
+                # Calculate the percentage for the storage bars
+                usage_pct = (used / capacity * 100) if capacity > 0 else 0
+                
+                node_infos.append(namenode_pb2.ClusterStatusResponse.NodeInfo(
+                    node_id=node_id,
+                    hostname=data["hostname"],
+                    port=data["port"],
+                    status=data["status"],
+                    storage_used_pct=usage_pct,
+                    last_heartbeat=int(data["last_heartbeat"])
+                ))
+
+            return namenode_pb2.ClusterStatusResponse(
+                namenode_active=True,
+                nodes=node_infos
+            )
+        except Exception as e:
+            self.logger.log("STATUS_ERROR", str(e))
+            # Returns default (namenode_active=False) if logic fails
+            return namenode_pb2.ClusterStatusResponse(namenode_active=False)
 class NameNodeServer:
     """
     Name node server.
@@ -371,7 +411,8 @@ class NameNodeServer:
         current_time = datetime.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%H:%M")  # Format time as HH:MM in IST
         self.logger.log(
             "SERVER_START",
-            f"namenode_{current_time}",
+            f"namenode_{current_time}"
+            ,0
         )
 
         print("gRPC server started and waiting for termination", flush=True)  # Debug print to indicate server is running
@@ -397,4 +438,4 @@ class NameNodeServer:
         # for existing RPCs to complete.
         self.server.stop(grace=grace_period)
         
-        self.logger.log("SERVER_STOP", f"Graceful shutdown completed ({grace_period}s)")
+        self.logger.log("SERVER_STOP", f"Graceful shutdown completed ({grace_period}s)",0)
