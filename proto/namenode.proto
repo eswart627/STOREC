@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package proto;
 
-import "proto/common.proto";
+import "common.proto";
 
 service NameNodeService {
 
@@ -117,7 +117,7 @@ message ListFilesResponse{
 
 
 message HeartbeatRequest {
-    Heartbeat heartbeat = 1;
+    HeartbeatInfo heartbeat = 1;
 }
 
 message HeartbeatResponse {
