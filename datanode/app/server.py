@@ -19,7 +19,16 @@ class DataNodeService(datanode_pb2_grpc.DataNodeServiceServicer):
         block_id = None
         tmp_path = None
         final_path = None
-        start_time = time.time()
+        
+        # Latency timer (Total RPC time)
+        rpc_start_time = time.time()
+        
+        #start_time = time.time()
+        
+        # Throughput timer (Pure Disk I/O time)
+        total_disk_io_time = 0
+        total_bytes_written = 0
+        
         f = None
         try:
             for request in request_iterator:
@@ -33,7 +42,8 @@ class DataNodeService(datanode_pb2_grpc.DataNodeServiceServicer):
                         self.logger.log(
                                 "WRITE_REJECTED",
                                 f"Capacity exceeded "
-                                f"for block {block_id}"
+                                f"for block {block_id}",
+                                is_throughput=True
                             )
                         return (datanode_pb2.WriteBlockResponse(
                                         status=
@@ -47,14 +57,29 @@ class DataNodeService(datanode_pb2_grpc.DataNodeServiceServicer):
                 tmp_path = os.path.join(self.storage.tmp_dir, f"{block_id}.tmp")
                 final_path = os.path.join(self.storage.chunks_dir, block_id)
                 f = open(tmp_path, "wb")
-                self.logger.log("RPC_RECEIVE", f"Streaming started for: {block_id}")
+                self.logger.log("RPC_RECEIVE", f"Streaming started for: {block_id}", is_throughput=True)
+                
+                # Measure DISK I/O ONLY
+                io_start = time.time()
                 f.write(block.data_bytes)
+                f.flush()
+                os.fsync(f.fileno()) # Force physical write
+                # --- STOP MEASURING DISK I/O ---
+                total_disk_io_time += (time.time() - io_start) 
+                total_bytes_written += len(block.data_bytes)
                 
             if f:
                 f.close()
                 os.replace(tmp_path, final_path)
-                duration = time.time() - start_time
-                self.logger.log("WRITE_SUCCESS", f"Block {block_id} stored in volume. in {duration:.4f} seconds")
+                total_latency = time.time() - rpc_start_time
+                #duration = time.time() - start_time
+                size_mb = total_bytes_written / (1024 * 1024)
+                write_throughput = size_mb / total_disk_io_time if total_disk_io_time > 0 else 0
+                
+                self.logger.log("WRITE_METRICS",
+                                f"Block {block_id} stored in volume | Latency: {total_latency:.4f}s | "
+                                f"Write Throughput(Disk Speed): {write_throughput:.2f} MB/s",
+                                is_throughput=True)
 
             node_info = common_pb2.Node(
                 hostname = self.config.hostname,
@@ -65,6 +90,7 @@ class DataNodeService(datanode_pb2_grpc.DataNodeServiceServicer):
                 node_id = self.config.node_id,
                 node = node_info
             )
+             
 
             return datanode_pb2.WriteBlockResponse(
                 status=common_pb2.Status(
@@ -72,14 +98,19 @@ class DataNodeService(datanode_pb2_grpc.DataNodeServiceServicer):
                     message="Block stored successfully"
                 ),
                 node = node_id_wrapper,
-                block_id = block_id
+                block_id = block_id,
+                
+                metrics = common_pb2.Metrics(
+                latency_seconds = total_latency,
+                throughput_mbs = write_throughput
+                )  
             )
         except Exception as e:
             if f:
                 f.close()
             if (tmp_path and os.path.exists(tmp_path)):
                 os.remove(tmp_path)
-            self.logger.log("WRITE ERROR", str(e))
+            self.logger.log("WRITE ERROR", str(e),is_throughput=True)
             return datanode_pb2.WriteBlockResponse(
                 status=common_pb2.Status(success=False, message=str(e))
             )

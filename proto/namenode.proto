@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package proto;
 
-import "common.proto";
+import "proto/common.proto";
 
 service NameNodeService {
 
@@ -41,7 +41,6 @@ service NameNodeService {
     // (File)
     // (success, message, block_ids[])
 
-
     // Heartbeat
     rpc SendHeartbeat (HeartbeatRequest) 
     returns (HeartbeatResponse);
@@ -49,7 +48,25 @@ service NameNodeService {
     rpc ListFiles (ListFilesRequest)
     returns (ListFilesResponse);
 
+    rpc GetClusterStatus (ClusterStatusRequest) 
+    returns (ClusterStatusResponse);
 
+
+}
+
+message ClusterStatusRequest {}
+
+message ClusterStatusResponse {
+    message NodeInfo {
+        string node_id = 1;
+        string hostname = 2;
+        int32 port = 3;
+        string status = 4;            // "ACTIVE" or "INACTIVE"
+        float storage_used_pct = 5; 
+        int64 last_heartbeat = 6;
+    }
+    bool namenode_active = 1;
+    repeated NodeInfo nodes = 2;
 }
 
 
@@ -57,11 +74,11 @@ service NameNodeService {
 message RegisterRequest {
     Node node = 1;
     int64 capacity_bytes = 2;
-    string node_id = 3;   // datanode sends its stored ID of it has one
+    string node_id = 3; // datanode sends its stored ID of it has one
 }
 
 message RegisterResponse {
-    string node_id = 1;   // Renamed 'Id' as 'node_id' for consistency with heartbeat
+    string node_id = 1; // Renamed 'Id' as 'node_id' for consistency with heartbeat
     Status status = 2;
 }
 
@@ -117,9 +134,9 @@ message ListFilesResponse{
 
 
 message HeartbeatRequest {
-    HeartbeatInfo heartbeat = 1;
+  HeartbeatInfo heartbeat = 1;
 }
 
 message HeartbeatResponse {
-    Status status = 1;
+  Status status = 1;
 }

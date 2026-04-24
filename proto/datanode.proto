@@ -2,10 +2,9 @@ syntax = "proto3";
 
 package proto;
 
-import "common.proto";
+import "proto/common.proto";
 
 service DataNodeService {
-    
     // all methods only invoked by clientfor block ops
   rpc WriteBlock(stream WriteBlockRequest)
   returns (WriteBlockResponse);
@@ -33,6 +32,7 @@ message WriteBlockResponse {
   Status status   = 1;
   NodeId node     = 2;
   string block_id = 3;
+  Metrics  metrics  = 4;
 }
 
 message ReadBlockRequest {

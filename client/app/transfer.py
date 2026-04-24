@@ -34,4 +34,5 @@ class DataNodeClient:
             )
         )
         response = self.stub.WriteBlock(iter([request]))
-        return response.status.success
+        #return response.status.success
+        return response

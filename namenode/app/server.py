@@ -118,7 +118,13 @@ class NameNodeService(
             1
         )
         
-        self.registry.heartbeat(heartbeat.node_id)
+        # self.registry.heartbeat(heartbeat.node_id)
+        
+        self.registry.heartbeat(
+        heartbeat.node_id, 
+        used=heartbeat.used_bytes, 
+        available=heartbeat.free_bytes
+                     )
         return namenode_pb2.HeartbeatResponse(
             status=common_pb2.Status(
                 success=True, 
@@ -314,7 +320,38 @@ class NameNodeService(
             block_groups=block_groups
             
         )
+        
+    # server.py -> NameNodeService class
 
+    # In server.py, inside NameNodeService class
+    def GetClusterStatus(self, request, context):
+        try:
+            nodes_dict = self.registry.list_nodes()
+            node_infos = []
+
+            for node_id, data in nodes_dict.items():
+                used = data.get("used", 0)
+                capacity = data.get("capacity", 0)
+                # Calculate the percentage for the storage bars
+                usage_pct = (used / capacity * 100) if capacity > 0 else 0
+                
+                node_infos.append(namenode_pb2.ClusterStatusResponse.NodeInfo(
+                    node_id=node_id,
+                    hostname=data["hostname"],
+                    port=data["port"],
+                    status=data["status"],
+                    storage_used_pct=usage_pct,
+                    last_heartbeat=int(data["last_heartbeat"])
+                ))
+
+            return namenode_pb2.ClusterStatusResponse(
+                namenode_active=True,
+                nodes=node_infos
+            )
+        except Exception as e:
+            self.logger.log("STATUS_ERROR", str(e))
+            # Returns default (namenode_active=False) if logic fails
+            return namenode_pb2.ClusterStatusResponse(namenode_active=False)
 class NameNodeServer:
     """
     Name node server.

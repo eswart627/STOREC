@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STOREC Topology View</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            background-color: #020408;
+            margin: 0;
+            overflow: hidden;
+            cursor: grab;
+            user-select: none;
+        }
+        body:active { cursor: grabbing; }
+
+        #world {
+            position: absolute;
+            width: 5000px;
+            height: 5000px;
+            background-color: #020408;
+            background-image: 
+                radial-gradient(#1e293b 0.5px, transparent 0.5px), 
+                linear-gradient(to right, #0f172a 1px, transparent 1px), 
+                linear-gradient(to bottom, #0f172a 1px, transparent 1px);
+            background-size: 60px 60px;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%); 
+            will-change: transform;
+        }
+
+        .connector-line {
+            stroke: #0f172a; /* Same as grid lines - almost invisible */
+            stroke-width: 1;
+            fill: none;
+            transition: all 0.5s ease;
+        }
+        .active-line {
+            stroke: #3b82f6;
+            stroke-width: 2;
+            stroke-dasharray: 8;
+            animation: flow 1.5s linear infinite;
+            filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.4));
+        }
+        @keyframes flow { from { stroke-dashoffset: 32; } to { stroke-dashoffset: 0; } }
+        
+        #header { z-index: 100; }
+        
+        /* Master PC Node Custom Styling */
+        .master-box {
+            background: linear-gradient(145deg, #0f172a, #020408);
+            border: 2px solid #3b82f6;
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.15), inset 0 0 20px rgba(59, 130, 246, 0.05);
+        }
+    </style>
+</head>
+<body class="text-slate-400 font-mono">
+    
+    <div id="header" class="fixed top-0 left-0 w-full p-6 flex justify-between items-center border-b border-slate-800 bg-slate-950/90 backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <i data-lucide="layout-grid" class="text-blue-500"></i>
+            <h1 class="text-sm font-bold tracking-[0.3em] uppercase">STOREC // Cluster_Map_v2</h1>
+        </div>
+        <div class="text-[10px] text-slate-500">SYSTEM_STATUS: <span class="text-green-500" id="status-span">NOMINAL</span></div>
+    </div>
+
+    <div id="world">
+        <svg id="network-svg" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
+
+        <div id="master-node" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 master-box p-8 rounded-2xl text-center w-60 transition-all duration-500">
+            <div class="relative mb-4 flex justify-center gap-1">
+                <i data-lucide="monitor" class="text-blue-400 w-12 h-12"></i>
+                <i data-lucide="database" class="text-blue-500 w-12 h-12 mt-2 opacity-50"></i>
+            </div>
+            <div class="text-[10px] font-black text-blue-400 tracking-[0.4em] mb-1">NAMENODE</div>
+            <div class="text-xs text-white font-bold uppercase">Root Authority</div>
+            <div class="mt-4 flex justify-center gap-2">
+                <div class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping"></div>
+                <div class="w-1.5 h-1.5 rounded-full bg-blue-500/50"></div>
+                <div class="w-1.5 h-1.5 rounded-full bg-blue-500/30"></div>
+            </div>
+        </div>
+
+        <div id="node-container" class="absolute inset-0 pointer-events-none"></div>
+    </div>
+
+    <script>
+        const TOTAL_SLOTS = 12;
+        const RADIUS = 800; // Large spacing
+        const WORLD_SIZE = 5000;
+
+        let isDragging = false;
+        let startX, startY;
+        let scrollLeft = WORLD_SIZE / 2 - window.innerWidth / 2;
+        let scrollTop = WORLD_SIZE / 2 - window.innerHeight / 2;
+        let scale = 0.8; // Start slightly zoomed out
+        
+        const world = document.getElementById('world');
+        updateWorldPosition();
+
+        // PANNING
+        document.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.pageX;
+            startY = e.pageY;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = (e.pageX - startX);
+            const dy = (e.pageY - startY);
+            scrollLeft -= dx;
+            scrollTop -= dy;
+            startX = e.pageX;
+            startY = e.pageY;
+            updateWorldPosition();
+        });
+
+        document.addEventListener('mouseup', () => isDragging = false);
+
+        // ZOOM SENSITIVITY FIX
+        document.addEventListener('wheel', (e) => {
+            // Lower the multiplier (0.0005) to make it less sensitive
+            const zoomSpeed = 0.002;
+            scale -= e.deltaY * zoomSpeed;
+            scale = Math.min(Math.max(0.2, scale), 1.5); // Min 0.2x, Max 1.5x
+            updateWorldPosition();
+        }, {passive: false});
+
+        function updateWorldPosition() {
+            world.style.transform = `translate(calc(-50% - ${scrollLeft - (WORLD_SIZE/2 - window.innerWidth/2)}px), calc(-50% - ${scrollTop - (WORLD_SIZE/2 - window.innerHeight/2)}px)) scale(${scale})`;
+        }
+
+        async function updateDashboard() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                
+                const master = document.getElementById('master-node');
+                const systemStatus = document.getElementById('status-span');
+                const container = document.getElementById('node-container');
+                const svg = document.getElementById('network-svg');
+
+                if (!data.namenode_online) {
+                    master.style.borderColor = "#ef4444"; 
+                    systemStatus.innerHTML = 'OFFLINE';
+                    systemStatus.className = 'text-red-500 animate-pulse';
+                    container.innerHTML = '';
+                    svg.innerHTML = '';
+                    return;
+                }
+
+                master.style.borderColor = "#3b82f6";
+                systemStatus.innerHTML = 'NOMINAL';
+                systemStatus.className = 'text-green-500';
+
+                container.innerHTML = '';
+                svg.innerHTML = '';
+
+                const centerX = WORLD_SIZE / 2;
+                const centerY = WORLD_SIZE / 2;
+                const nodes = data.nodes;
+                const ids = Object.keys(nodes);
+
+                for (let i = 0; i < TOTAL_SLOTS; i++) {
+                    const angle = (i * (360 / TOTAL_SLOTS)) * (Math.PI / 180);
+                    const x = centerX + RADIUS * Math.cos(angle) - 100;
+                    const y = centerY + RADIUS * Math.sin(angle) - 50;
+
+                    const nodeData = nodes[ids[i]] || null;
+                    const isActive = nodeData && nodeData.status === "ACTIVE";
+
+                    // Connection Line
+                    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    line.setAttribute("x1", centerX);
+                    line.setAttribute("y1", centerY);
+                    line.setAttribute("x2", x + 100);
+                    line.setAttribute("y2", y + 50);
+                    line.setAttribute("class", `connector-line ${isActive ? 'active-line' : ''}`);
+                    svg.appendChild(line);
+
+                    // Node Card
+                    const nodeDiv = document.createElement('div');
+                    nodeDiv.className = `absolute transition-all duration-700 p-4 rounded-xl border-2 w-52 pointer-events-auto ${
+                        isActive ? 'bg-slate-900 border-blue-500/40 shadow-xl scale-100' : 'bg-transparent border-slate-900 opacity-10 scale-90 border-dashed'
+                    }`;
+                    nodeDiv.style.left = `${x}px`;
+                    nodeDiv.style.top = `${y}px`;
+
+                    nodeDiv.innerHTML = `
+                        <div class="flex justify-between items-center mb-2">
+                            <i data-lucide="layers" class="w-4 h-4 ${isActive ? 'text-blue-400' : 'text-slate-800'}"></i>
+                            <div class="h-1.5 w-1.5 rounded-full ${isActive ? 'bg-green-500 animate-pulse' : 'bg-slate-900'}"></div>
+                        </div>
+                        <div class="text-[10px] font-black ${isActive ? 'text-white' : 'text-slate-800'} tracking-tighter">
+                            ${isActive ? nodeData.ip : 'SLOT_ID_' + (i + 1)}
+                        </div>
+                        ${isActive ? `
+                            <div class="mt-3 h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+                                <div class="bg-blue-500 h-full transition-all duration-1000" style="width: ${nodeData.storage}"></div>
+                            </div>
+                            <div class="flex justify-between mt-2">
+                                <span class="text-[7px] text-slate-500 uppercase font-bold">Allocated</span>
+                                <span class="text-[7px] text-blue-400 font-bold">${nodeData.storage}</span>
+                            </div>
+                        ` : '<div class="text-[7px] text-slate-900 mt-2 font-bold uppercase">Disconnected</div>'}
+                    `;
+                    container.appendChild(nodeDiv);
+                }
+                lucide.createIcons();
+            } catch (err) {
+                console.error("Dashboard update failed:", err);
+            }
+        }
+
+        setInterval(updateDashboard, 2000);
+        window.addEventListener('resize', () => updateWorldPosition());
+        updateDashboard();
+    </script>
+</body>
+</html>

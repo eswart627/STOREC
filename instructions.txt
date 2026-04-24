@@ -2,6 +2,10 @@ PascalCase -> messages, RPC_METHODS
 snake_case -> field/attributes, nrpc funcs
 UPPER_CASE -> enum values, config
 
+PascalCase -> messages, RPC_METHODS
+snake_case -> field/attributes, nrpc funcs
+UPPER_CASE -> enum values, config
+
 
 protobuf files compilation:
 In wsl :

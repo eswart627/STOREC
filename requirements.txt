@@ -1,5 +1,4 @@
 
-flaskblinker==1.9.0
 blinker==1.9.0
 cffi==2.0.0
 click==8.3.2
@@ -21,3 +20,4 @@ reedsolo==1.7.0
 setuptools==82.0.1
 typing_extensions==4.15.0
 Werkzeug==3.1.8
+reedsolo==1.7.0
