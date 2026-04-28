@@ -86,7 +86,7 @@ def get_file_metadata(host='10.10.20.60', port=50051, file_name='text_file.txt')
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Read file metadata from NameNode.")
-    parser.add_argument("--host", default="10.10.20.60", help="NameNode hostname (default: 10.10.20.60)")
+    parser.add_argument("--host", default="192.168.137.136", help="NameNode hostname (default: 192.168.137.136)")
     parser.add_argument("--port", default="50051", help="NameNode port (default: 50051)")
     parser.add_argument("--file", default="text_file.txt", help="File name to read metadata for (default: test_file.txt)")
     

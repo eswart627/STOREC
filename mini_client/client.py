@@ -70,7 +70,7 @@ def test_namenode_methods(host='localhost', port=50051):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Mini Client to test NameNode methods.")
-    parser.add_argument("--host", default="192.168.1.166", help="NameNode hostname (default: 192.168.1.166)")
+    parser.add_argument("--host", default="192.168.137.136", help="NameNode hostname (default: 192.168.1.166)")
     parser.add_argument("--port", default="50051", help="NameNode port (default: 50051)")
     
     args = parser.parse_args()

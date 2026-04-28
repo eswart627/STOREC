@@ -79,7 +79,7 @@ class DataNodeRegistry:
             if mode == 0:
                 return node_id
             return None
-    def heartbeat(self, node_id: str) -> str | None:
+    def heartbeat(self, node_id: str,used:int = 0,available:int = 0) -> str | None:
         """
         Update the heartbeat timestamp for an already registered DataNode.
 
@@ -94,9 +94,15 @@ class DataNodeRegistry:
         if node_id not in self.nodes:
             return f"Node {node_id} not found in registry"
 
-        self.nodes[node_id]["last_heartbeat"] = now
-        self.nodes[node_id]["status"] = "ACTIVE"
-        
+        # self.nodes[node_id]["last_heartbeat"] = now
+        # self.nodes[node_id]["status"] = "ACTIVE"
+        with self.lock: # Always use the lock when writing!
+            self.nodes[node_id]["last_heartbeat"] = now
+            self.nodes[node_id]["status"] = "ACTIVE"
+            # ADD THESE LINES:
+            self.nodes[node_id]["used"] = used
+            self.nodes[node_id]["available"] = available
+            
         return None
 
     def list_nodes(self) -> dict[str,node_template]:

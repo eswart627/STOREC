@@ -1,6 +1,11 @@
 import configparser
 import os
+import logging
 
+
+BASE_DIR = os.path.dirname(os.path.dirname(__file__)) # cd storec/client
+
+print(f"BASE_DIR: {BASE_DIR}")
 
 CONFIG_PATH = os.path.join(
     os.path.dirname(__file__),
@@ -8,6 +13,20 @@ CONFIG_PATH = os.path.join(
     "config",
     "client.config"
 )
+
+LOG_DIR = os.path.join(BASE_DIR,"logs")
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR)
+
+LOG_FILE = os.path.join(LOG_DIR, "client.log")
+
+logging.basicConfig(
+    filename=LOG_FILE,
+    filemode='a',
+    level=logging.INFO,
+    format="%(message)s",
+)
+
 
 config = configparser.ConfigParser()
 config.read(CONFIG_PATH)

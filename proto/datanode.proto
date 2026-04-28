@@ -32,6 +32,7 @@ message WriteBlockResponse {
   Status status   = 1;
   NodeId node     = 2;
   string block_id = 3;
+  Metrics  metrics  = 4;
 }
 
 message ReadBlockRequest {
