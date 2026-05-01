@@ -27,9 +27,9 @@ touch $OUTPUT_DIR/__init__.py
 echo "Compiling protos from $PROTO_SRC_DIR to $OUTPUT_DIR..."
 
 # 2. Run compiler
-# We use detected python command with PROJECT_ROOT for absolute imports
+# We use detected python command with PROTO_SRC_DIR for relative imports
 $PYTHON_CMD -m grpc_tools.protoc \
-    -I $PROJECT_ROOT \
+    -I $PROTO_SRC_DIR \
     --python_out=$OUTPUT_DIR \
     --grpc_python_out=$OUTPUT_DIR \
     --pyi_out=$OUTPUT_DIR \

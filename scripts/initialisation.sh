@@ -91,4 +91,39 @@ sleep 3
 scripts/init_dns.sh --count "$COUNT" --start-port "$START_PORT" --config "$CONFIG_FILE"
 
 echo "Initialization complete!"
-echo -e "$FINAL_ECHO"
+echo "To attach to NameNode: screen -r namenode"
+echo "To attach to a DataNode: screen -r datanode_<port>"
+echo "To list all screen sessions: screen -ls"
+echo ""
+echo "Press Ctrl+C to stop all services..."
+
+# Cleanup function
+cleanup() {
+    echo ""
+    echo "Stopping all services..."
+    
+    # Kill all python processes for namenode and datanode
+    pkill -f 'python3 -m namenode.app.main'
+    pkill -f 'python3 -m datanode.app.main'
+    
+    # Wait a moment for processes to die
+    sleep 2
+    
+    # Kill all screen sessions
+    screen -ls | grep -E "(namenode|datanode)" | awk '{print $1}' | xargs -I {} screen -X -S {} quit
+    
+    # Force kill any remaining screens
+    pkill -f "SCREEN.*namenode"
+    pkill -f "SCREEN.*datanode"
+    
+    echo "All services stopped!"
+    exit 0
+}
+
+# Set trap to catch Ctrl+C
+trap cleanup INT
+
+# Wait indefinitely (or until Ctrl+C)
+while true; do
+    sleep 1
+done
