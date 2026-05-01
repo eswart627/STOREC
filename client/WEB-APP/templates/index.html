@@ -88,8 +88,8 @@
     </div>
 
     <script>
-        const TOTAL_SLOTS = 12;
-        const RADIUS = 800; // Large spacing
+        //const TOTAL_SLOTS = 12;
+        //const RADIUS = 800; // Large spacing
         const WORLD_SIZE = 5000;
 
         let isDragging = false;
@@ -164,9 +164,10 @@
                 const centerY = WORLD_SIZE / 2;
                 const nodes = data.nodes;
                 const ids = Object.keys(nodes);
-
-                for (let i = 0; i < TOTAL_SLOTS; i++) {
-                    const angle = (i * (360 / TOTAL_SLOTS)) * (Math.PI / 180);
+                const totalNodes = ids.length;
+                const RADIUS = Math.max(400, totalNodes * 60);
+                for (let i = 0; i < totalNodes; i++) {
+                    const angle = (i * (360 / totalNodes)) * (Math.PI / 180);
                     const x = centerX + RADIUS * Math.cos(angle) - 100;
                     const y = centerY + RADIUS * Math.sin(angle) - 50;
 
