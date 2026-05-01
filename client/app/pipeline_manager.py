@@ -1,11 +1,17 @@
-from concurrent.futures import ThreadPoolExecutor
 import os
 import time
 import logging
 from .stripe_builder import StripeBuilder
 from .encoder import Encoder
 from .transfer import DataNodeClient
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    wait,
+    FIRST_COMPLETED
+)
 from .config_loader import (K, M, BLOCK_SIZE)
+
+from .parallel_writer import ParallelStripeWriter
 
 class PipelineManager:
     def __init__(self,block_groups, mode="single", max_workers=4):
@@ -20,6 +26,10 @@ class PipelineManager:
         self.total_stripes_processed = 0
         self.total_bytes_read =0
         self.metrics_report = []
+        self.parallel_writer = ParallelStripeWriter(
+                self.encoder,
+                self.metrics_report
+        )
         
     def _print_table(self,file_name,file_path):
         if not self.metrics_report:
@@ -98,22 +108,42 @@ class PipelineManager:
         return local_ids
 
     def run(self, file_path):
-        file_name = os.path.basename(file_path)
-        self.written_block_ids=[]
-        
-        
-        start_time = time.time()
-        if self.mode == "single":
-            res = self._run_single_threaded(file_path)
-        elif self.mode == "parallel":
-            res = self._run_parallel(file_path)
-        else:
-            raise Exception("Invalid pipeline mode")
-        
-        self.total_execution_time = time.time() - start_time
-        self._print_table(file_name,file_path)
-        return res
 
+        file_name = os.path.basename(file_path)
+
+        self.written_block_ids = []
+
+        start_time = time.time()
+
+        if self.mode == "single":
+
+            res = self._run_single_threaded(file_path)
+
+        elif self.mode == "parallel":
+
+            res = self._run_parallel(file_path)
+
+        elif self.mode == "block_parallel":
+
+            res = self._run_block_parallel(file_path)
+
+        else:
+
+            raise Exception(
+                f"Invalid pipeline mode: {self.mode}"
+            )
+
+        self.total_execution_time = (
+            time.time() - start_time
+        )
+
+        self._print_table(
+            file_name,
+            file_path
+        )
+
+        return res
+    
     def _run_single_threaded(self, file_path):
         file_size = os.path.getsize(file_path)
 
@@ -225,25 +255,52 @@ class PipelineManager:
         return self.written_block_ids
     
     def _run_parallel(self, file_path):
+
         print(
             f"Running parallel pipeline "
-            f"workers={self.max_workers}"
+            f"workers={self.max_workers}",
+            flush=True
         )
+
         builder = StripeBuilder(file_path)
+
+        executor = ThreadPoolExecutor(
+            max_workers=self.max_workers
+        )
+
+        active_futures = set()
+
         stripe_index = 0
-        futures = []
-        executor = ThreadPoolExecutor(max_workers=self.max_workers)
+
+        total_stripes = len(
+            self.block_groups
+        )
+
         try:
-            while True:
-                data_blocks = builder.next_stripe()
+
+            while (
+                stripe_index < total_stripes
+                and len(active_futures)
+                < self.max_workers
+            ):
+
+                data_blocks = (
+                    builder.next_stripe()
+                )
+
                 if data_blocks is None:
                     break
-                if stripe_index >= len(self.block_groups):
-                    raise Exception(
-                        "More stripes processed than allocated"
-                    )
+
                 placements = (
-                    self.block_groups[stripe_index].placement
+                    self.block_groups[
+                        stripe_index
+                    ].placement
+                )
+
+                print(
+                    f"Dispatching stripe "
+                    f"{stripe_index}",
+                    flush=True
                 )
 
                 future = executor.submit(
@@ -253,14 +310,169 @@ class PipelineManager:
                     placements
                 )
 
-                futures.append(future)
+                future.stripe_id = (
+                    stripe_index
+                )
+
+                active_futures.add(
+                    future
+                )
+
                 stripe_index += 1
 
-            for future in futures:
-                block_ids = future.result()
-                self.written_block_ids.extend(block_ids)
+            while active_futures:
+
+                done, active_futures = wait(
+                    active_futures,
+                    return_when=
+                    FIRST_COMPLETED
+                )
+
+                for finished in done:
+
+                    stripe_id = (
+                        finished.stripe_id
+                    )
+
+                    block_ids = (
+                        finished.result()
+                    )
+
+                    print(
+                        f"Stripe "
+                        f"{stripe_id} "
+                        f"completed",
+                        flush=True
+                    )
+
+                    self.written_block_ids.extend(
+                        block_ids
+                    )
+
+                    if stripe_index < total_stripes:
+
+                        data_blocks = (
+                            builder.next_stripe()
+                        )
+
+                        if data_blocks is not None:
+
+                            placements = (
+                                self.block_groups[
+                                    stripe_index
+                                ].placement
+                            )
+
+                            print(
+                                f"Dispatching stripe "
+                                f"{stripe_index}",
+                                flush=True
+                            )
+
+                            new_future = (
+                                executor.submit(
+                                    self._process_stripe,
+                                    stripe_index,
+                                    data_blocks,
+                                    placements
+                                )
+                            )
+
+                            new_future.stripe_id = (
+                                stripe_index
+                            )
+
+                            active_futures.add(
+                                new_future
+                            )
+
+                            stripe_index += 1
+
         finally:
+
             builder.close()
+
             executor.shutdown()
+
+            print(
+                "Parallel pipeline finished",
+                flush=True
+            )
+
         return self.written_block_ids
-    
+
+    def _run_block_parallel(self, file_path):
+
+        print(
+            "Running block-parallel pipeline",
+            flush=True
+        )
+
+        builder = StripeBuilder(
+            file_path
+        )
+
+        stripe_index = 0
+
+        total_stripes = len(
+            self.block_groups
+        )
+
+        try:
+
+            while True:
+
+                data_blocks = (
+                    builder.next_stripe()
+                )
+
+                if data_blocks is None:
+                    break
+
+                if stripe_index >= total_stripes:
+
+                    raise Exception(
+                        "More stripes processed "
+                        "than allocated"
+                    )
+
+                placements = (
+                    self.block_groups[
+                        stripe_index
+                    ].placement
+                )
+
+                print(
+                    f"Processing stripe "
+                    f"{stripe_index}",
+                    flush=True
+                )
+
+                block_ids = (
+                    self.parallel_writer
+                    .process_stripe(
+                        stripe_index,
+                        data_blocks,
+                        placements
+                    )
+                )
+
+                self.written_block_ids.extend(
+                    block_ids
+                )
+
+                stripe_index += 1
+
+        finally:
+
+            builder.close()
+
+            print(
+                "Block-parallel pipeline finished",
+                flush=True
+            )
+
+        return self.written_block_ids
+
+
+        

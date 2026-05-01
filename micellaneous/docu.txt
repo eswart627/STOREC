@@ -1,0 +1,271 @@
+# NameNode System Documentation
+
+## Overview
+The NameNode is the central coordinator in a distributed storage system that manages file metadata, block allocation, and data node coordination. This document explains the detailed functionality of each component.
+
+## Core Components
+
+### 1. Allocation Manager (`allocation.py`)
+
+**Purpose**: Manages block allocation to data nodes using stripe-based distributed storage.
+
+**Key Features**:
+- **File-based Allocation**: Stores allocations by `file_name` as keys: `self.allocations[file_name][stripe_id][block_id] = node_id` in volatile storage
+for tracking
+- **Stripe-based Organization**: Groups blocks into stripes for redundancy and performance
+- **Thread-safe Operations**: Uses `threading.Lock` for concurrent access
+- **Resource Management**: Tracks node capacity and assignment status
+
+**Core Methods**:
+
+#### `allocate(file_details, no_of_stripes, no_of_shards)`
+- **Input**: File details, number of stripes, number of shards per stripe
+- **Process**:
+  1. Gets available data nodes from registry
+  2. Creates round-robin allocation across nodes
+  3. Stores allocation: `allocations[file_name][stripe_id][block_id] = node_id`
+  4. Updates node capacity and assignment status
+- **Output**: List of `BlockGroups` with placement information
+
+#### `commit_block(file_name, block_ids, cursor)`
+- **Input**: File name, list of block IDs, database cursor
+- **Process**:
+  1. Validates file exists in allocations
+  2. Iterates through all stripes to find matching blocks
+  3. Commits found blocks to `metadata_table` with stripe_id
+  4. Updates node assignment status to False
+  5. Removes committed blocks from allocation
+  6. **All-or-Nothing**: If any requested blocks missing, raises exception
+- **Database Schema**: `metadata_table(id, file_id, stripe_id, block_id, size, node_id)`
+
+#### `release_nodes(file_name, blocks)`
+
+- **Purpose**: Rollback allocation when commit fails
+- **Process**: Frees node assignments and removes blocks from allocation
+- The method is under development and is not to be used yet(latest commit 15)
+### 2. Data Node Registry (`registry.py`)
+
+**Purpose**: Manages data node registration, health monitoring, and availability.
+
+**Key Features**:
+- **Node Registration**: Tracks node capacity, hostname, port, and status
+- **Health Monitoring**: Monitors heartbeats and marks inactive nodes
+- **Load Balancing**: Provides available nodes for allocation
+- **Persistence**: Saves/loads node state from database
+
+**Core Methods**:
+
+#### `register_node(node_info)`
+- **Purpose**: Register new data node in the system
+- **Process**: Validates node info, assigns unique ID, updates database
+- **Database**: Inserts into `dn_table` with initial capacity values
+
+#### `update_heartbeat(node_id, timestamp)`
+- **Purpose**: Update node's last heartbeat timestamp
+- **Process**: Marks node as ACTIVE if previously INACTIVE
+- **Health Tracking**: Used by health checker to determine node status
+
+#### `check_health()`
+- **Purpose**: Identify dead/inactive nodes based on heartbeat timeout
+- **Process**:
+  1. Iterates through all registered nodes
+  2. Compares current time vs last heartbeat
+  3. Marks nodes as INACTIVE if timeout exceeded
+- **Returns**: List of dead node IDs for cleanup
+
+#### `get_available_nodes()`
+- **Purpose**: Return list of nodes that can accept new allocations
+- **Filter Criteria**: ACTIVE status AND sufficient available capacity
+- **Usage**: Called by allocation manager for block placement
+
+**Database Schema**: `dn_table(dn_id, dn_address, dn_port, dn_status, dn_capacity, dn_used, dn_available, dn_last_heartbeat)`
+
+### 3. NameNode Server (`server.py`)
+
+**Purpose**: gRPC server that handles client requests and coordinates system operations.
+
+**Core Services**:
+
+#### `AllocateBlocks(request)`
+- **Process**:
+  1. Validates request parameters (file size, stripe configuration)
+  2. Calls allocation manager to reserve blocks across available nodes
+  3. Returns block placement information with node assignments
+  4. Updates allocation cursor for next round-robin cycle
+- **Response**: `BlockGroups` with stripe IDs and node placement details
+- **Error Handling**: Returns error if no nodes available
+
+#### `CommitFile(request)`
+- **Process**:
+  1. Validates file exists in allocation system
+  2. Calls `commit_block()` for all blocks in single database transaction
+  3. **All-or-Nothing**: On any failure, calls `release_nodes()` and rolls back transaction
+  4. Inserts file record into `file_table` with metadata
+  5. Commits transaction to make changes permanent
+  6. On success, removes allocation from volatile storage
+- **Error Handling**: Comprehensive rollback with detailed error messages
+- **Database Operations**: Multiple INSERT statements within single transaction
+
+#### `GetFileMetadata(request)`
+- **Process**:
+  1. Queries `file_table` for file existence and basic metadata
+  2. Queries `metadata_table` for all block assignments for the file
+  3. Organizes blocks into stripe groups based on stripe_id
+  4. Returns structured metadata with complete block placement
+- **Response**: File details, stripe configuration, and block groups
+- **Error Handling**: Returns error if file not found
+
+#### `DeleteFile(request)`
+- **Purpose**: Remove file and all associated block metadata from system
+- **Process**:
+  1. Validates file exists in `file_table`
+  2. Cascading delete: Removes from `file_table` first, then `metadata_table`
+  3. Database constraints handle referential integrity automatically
+- **Transaction Safety**: All operations in single transaction
+- **Error Handling**: Returns error if file not found
+
+### 4. Health Checker (`main.py`)
+
+**Purpose**: Background service that monitors data node health and updates registry status.
+
+**Key Features**:
+- **Periodic Monitoring**: Configurable check intervals (default: 10 seconds)
+- **Heartbeat Analysis**: Tracks node responsiveness over time
+- **Automatic Cleanup**: Marks unresponsive nodes as INACTIVE
+- **Graceful Degradation**: System continues operating with reduced node capacity
+
+**Core Methods**:
+
+#### `health_checker_thread()`
+- **Purpose**: Main monitoring loop that runs periodically
+- **Process**:
+  1. Sleeps for configured interval
+  2. Calls registry.check_health() to identify dead nodes
+  3. Logs health status changes for debugging
+  4. Continues until shutdown signal received
+- **Configuration**: Controlled by `health_checker.enabled` setting
+
+#### `start_health_checker()`
+- **Purpose**: Initialize and start health monitoring thread
+- **Process**:
+  1. Creates daemon thread for background execution
+  2. Handles thread lifecycle management
+  3. Integrates with main server shutdown process
+- **Threading**: Non-blocking operation to avoid impacting gRPC server
+
+**Configuration**:
+- **Enable/Disable**: `health_checker.enabled` in namenode.config
+- **Interval**: `health_checker.interval_seconds` (default: 10)
+- **Timeout**: `health_checker.timeout_seconds` for node unresponsiveness
+
+**Integration**:
+- Works seamlessly with main NameNode server
+- Shares registry instance for node status updates
+- Logs all health events through central logger
+
+## Data Flow
+
+### File Upload Process:
+1. **AllocateBlocks**: Client requests block allocation
+2. **Reservation**: System reserves blocks on specific nodes
+3. **Data Transfer**: Client uploads blocks directly to data nodes
+4. **CommitFile**: Client confirms completion, system commits metadata
+5. **Cleanup**: Allocation records removed, nodes marked available
+
+### File Read Process:
+1. **GetFileMetadata**: Client requests file metadata
+2. **Block Resolution**: System returns node locations for all blocks
+3. **Direct Access**: Client reads blocks directly from data nodes
+
+## Error Handling & Recovery
+
+### Transaction Safety:
+- **Atomic Operations**: All database operations within transactions
+- **Rollback Capability**: Failed commits fully revert state
+- **Lock Management**: Thread-safe allocation modifications
+
+### Failure Scenarios:
+- **Missing Blocks**: Commit fails if requested blocks not allocated
+- **Node Failures**: Registry marks nodes inactive, allocation skips them
+- **Network Issues**: gRPC timeouts handled gracefully
+
+## Database Schema
+
+### File Table (`file_table`):
+- `file_name`: Primary identifier
+- `size`: File size in KB
+- `block_count`: Total number of blocks
+- `start_index`: Reference to metadata start
+- `data_blocks`: Number of data blocks per stripe
+- `parity_blocks`: Number of parity blocks per stripe
+
+### Metadata Table (`metadata_table`):
+- `file_id`: Associated file name
+- `stripe_id`: Stripe identifier for grouping
+- `block_id`: Unique block identifier
+- `size`: Block size in bytes
+- `node_id`: Data node where block is stored
+
+### Data Node Table (`dn_table`):
+- `dn_id`: Unique node identifier
+- `dn_address`: Node hostname/IP
+- `dn_port`: Node port
+- `dn_status`: ACTIVE/INACTIVE status
+- `dn_capacity`: Total storage capacity
+- `dn_used`: Currently used storage
+- `dn_available`: Available storage
+- `dn_last_heartbeat`: Last health check timestamp
+
+## Client Integration
+
+### Mini Client Functions:
+- **AllocateBlocks**: Tests block allocation
+- **CommitFile**: Tests file commitment with all-or-nothing semantics
+- **GetFileMetadata**: Tests metadata retrieval with checksum verification
+- **DeleteFile**: Tests file deletion
+
+### Checksum Verification:
+- **Purpose**: Verify block integrity across operations
+- **Method**: SHA256 hash of sorted block IDs joined with '|'
+- **Usage**: 
+  - Read client generates checksum of retrieved blocks
+  - File written to `{filename}_block_ids.txt` for verification
+  - Consistent checksums indicate data integrity
+
+## Configuration
+
+### NameNode Config (`namenode.config`):
+- **Network Settings**: Host, port for service binding
+- **Server Settings**: Worker threads, health check intervals
+- **Storage Settings**: Default block sizes and policies
+
+### Data Node Config:
+- **Registration**: NameNode connection details
+- **Storage**: Local data directory configuration
+- **Heartbeat**: Health check intervals
+
+## Scalability Features
+
+### Load Balancing:
+- **Round-Robin**: Even distribution across available nodes
+- **Capacity Awareness**: Considers node available space
+- **Health-Based**: Skips unhealthy nodes automatically
+
+### Stripe-Based Storage:
+- **Redundancy**: Data and parity blocks across different nodes
+- **Parallel Access**: Multiple blocks accessible simultaneously
+- **Failure Recovery**: Parity blocks enable data reconstruction
+
+## Security Considerations
+
+### Access Control:
+- **gRPC Security**: Channel authentication options
+- **Network Isolation**: Configurable network interfaces
+- **Data Validation**: Input sanitization and validation
+
+### Data Integrity:
+- **Checksums**: Block-level verification
+- **Transaction Logs**: Audit trail of all operations
+- **Atomic Operations**: Prevent partial corruption
+
+This documentation provides a comprehensive overview of the NameNode system architecture, data flow, and operational characteristics.

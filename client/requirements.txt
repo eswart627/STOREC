@@ -1,11 +1,14 @@
 argparse
 colorlog
+fastapi
 grpcio
 grpcio-tools
 numpy
 protobuf
 PyYAML
 python-dotenv
+python-multipart
 reedsolo
 tenacity
 tqdm
+uvicorn

@@ -36,3 +36,32 @@ class DataNodeClient:
         response = self.stub.WriteBlock(iter([request]))
         #return response.status.success
         return response
+    
+    def read_block(self, block_id):
+        request = datanode_pb2.ReadBlockRequest(
+            block_id=block_id
+        )
+
+        responses = self.stub.ReadBlock(request)
+
+        data = bytearray()
+
+        for response in responses:
+            if not response.status.success:
+                raise Exception(response.status.message)
+
+            data.extend(response.block.data_bytes)
+
+        return bytes(data)
+    
+    def delete_block(self, block_id):
+        request = datanode_pb2.DeleteBlockRequest(
+            block_id=block_id
+        )
+
+        response = self.stub.DeleteBlock(request)
+
+        if not response.status.success:
+            raise Exception(response.status.message)
+
+        return True

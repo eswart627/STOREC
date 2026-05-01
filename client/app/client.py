@@ -61,7 +61,7 @@ def main():
 
     parser.add_argument(
         "--mode",
-        choices=["single", "parallel"],
+        choices=["single", "parallel", "block_parallel"],
         default="single",
         help="Pipeline execution mode"
     )
