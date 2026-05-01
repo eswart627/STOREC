@@ -51,24 +51,49 @@ def upload_file(file_path, mode,max_workers):
         # Exit so we don't proceed with a broken state
         sys.exit(1)
 
+def download_file(file_name, output_path, mode, max_workers):
+    """Download and reconstruct file"""
+    namenode = NameNodeClient()
+    
+    # Get file metadata
+    response = namenode.get_file_metadata(file_name)
+    
+    # Download blocks
+    downloader = DownloadManager(
+        response.block_groups,
+        mode=mode,
+        max_workers=max_workers
+    )
+    downloader.download_file(output_path)
+
+def delete_file(file_name):
+    """Delete file from cluster"""
+    namenode = NameNodeClient()
+    response = namenode.delete_file(file_name)
+    
+    if response.status.success:
+        print(f"File '{file_name}' deleted successfully")
+        print(f"Deleted {len(response.block_ids)} blocks")
+    else:
+        raise Exception(f"Delete failed: {response.status.message}")
+
 def main():
     parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "file",
-        help = "File to upload"
-    )
-
-    parser.add_argument(
-        "--mode",
-        choices=["single", "parallel"],
-        default="single",
-        help="Pipeline execution mode"
-    )
-
+    parser.add_argument("file", help="File to upload/download/delete")
+    parser.add_argument("--mode", choices=["single", "parallel"], default="single")
+    parser.add_argument("--operation", choices=["upload", "download", "delete"], 
+                       default="upload", help="Operation to perform")
+    parser.add_argument("--output", help="Output path for download")
+    
     args = parser.parse_args()
-
-    upload_file(args.file, args.mode, MAX_WORKERS)
+    
+    if args.operation == "upload":
+        upload_file(args.file, args.mode, MAX_WORKERS)
+    elif args.operation == "download":
+        output_path = args.output or args.file
+        download_file(args.file, output_path, args.mode, MAX_WORKERS)
+    elif args.operation == "delete":
+        delete_file(args.file)
 
 if __name__ == "__main__":
     main()
