@@ -1,0 +1,29 @@
+!!! Setup is done from root of the directory
+
+Client Setup:
+    To setup Client interface:
+        1. Edit the ip address of namenode in client.config file
+        2. Install all modules in requirements.txt
+        3. Then, run command
+           > uvicorn client.client_interface.main:app --port 8001
+
+DataNode Setup:
+    1. Edit the ip address of namenode in client.config file
+    2. Install all modules in requirements.txt
+    3. Then, run command
+        for Windows:
+            > python -m scripts.init_dns --count 6
+        --count : no of instances of datanodes
+        WARNING: OPENS "count" no of seperate cmd prompt windows at once
+    
+    # DELETE /data folder for a fresh run
+
+Namenode Setup:
+    1. Edit the ip address in the config folder with device ip
+    2. Install all the modules in requirements.txt
+    3. Add MySQL Database credentials in config file
+    2. Run the command: (for DB setup)
+        > python -m namenode.db_manager.init-db
+    3. Run the command: (To run Namenode)
+        > python -m namenode.app.main
+

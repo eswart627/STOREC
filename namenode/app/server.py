@@ -1,3 +1,4 @@
+from importlib.resources import files
 
 import grpc
 import os
@@ -5,7 +6,7 @@ import time
 import math
 import datetime
 import random
-import pytz  # Add this import for timezone handling
+import pytz  
 import uuid
 
 from concurrent.futures import ThreadPoolExecutor
@@ -265,7 +266,7 @@ class NameNodeService(
                 )
             )
 
-    def list_files(self, request, context):
+    def ListFiles(self, request, context):
         """
         List files from registry.
         
@@ -277,17 +278,31 @@ class NameNodeService(
             ListFilesResponse object.
         """
         self.logger.log("LIST_FILES", "Listing files...\n",3)
+
         conn=get_connection()
         cur=conn.cursor()
-        cur.execute("SELECT * FROM file_table")
-        files=cur.fetchall()
-        for i,row in enumerate(files):
-            self.logger.log(f"File_{i}", f"Files: {row}",3)
-        return namenode_pb2.ListFilesResponse(
-            status=common_pb2.Status(
-                success=True,
-                message="Files listed successfully"
+
+        cur.execute("SELECT file_name, size FROM file_table")
+
+        rows=cur.fetchall()
+        files = []
+        for i,row in enumerate(rows):
+            file_name = row[0]
+            file_size = row[1]
+            self.logger.log(
+                f"File_{i}",
+                f"{file_name}",
+                3
             )
+            files.append(
+                common_pb2.File(
+                    file_name =file_name,
+                    file_size=file_size
+                )
+            )
+
+        return namenode_pb2.ListFilesResponse(
+            file_details=files
         )
 
     def GetFileMetadata(self, request, context):
@@ -326,6 +341,7 @@ class NameNodeService(
             block_groups=block_groups
             
         )
+    
     def GetClusterStatus(self, request, context):
         try:
             nodes_dict = self.registry.list_nodes()

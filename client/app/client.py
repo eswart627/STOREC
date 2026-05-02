@@ -79,12 +79,19 @@ def delete_file(file_name):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("file", help="File to upload/download/delete")
-    parser.add_argument("--mode", choices=["single", "parallel"], default="single")
-    parser.add_argument("--operation", choices=["upload", "download", "delete"], 
-                       default="upload", help="Operation to perform")
-    parser.add_argument("--output", help="Output path for download")
-    
+
+    parser.add_argument(
+        "file",
+        help = "File to upload"
+    )
+
+    parser.add_argument(
+        "--mode",
+        choices=["single", "parallel", "block_parallel"],
+        default="single",
+        help="Pipeline execution mode"
+    )
+
     args = parser.parse_args()
     
     if args.operation == "upload":

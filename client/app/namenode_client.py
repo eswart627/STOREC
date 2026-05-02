@@ -60,17 +60,35 @@ class NameNodeClient:
                 f"Commit failed: "
                 f"{response.status.message}"
             )
-
+    
     def get_file_metadata(self, file_name):
-    """Get file metadata including block locations"""
-    file_meta = common_pb2.File(file_name=file_name)
-    request = namenode_pb2.GetFileMetadataRequest(file_details=file_meta)
-    response = self.stub.GetFileMetadata(request)
-    return response
+        file_meta = common_pb2.File(
+            file_name=file_name,
+            file_size=0
+        )
+        request = namenode_pb2.GetFileMetadataRequest(file_details=file_meta)
+        response = self.stub.GetFileMetadata(request)
+        return response
 
     def delete_file(self, file_name):
-        """Delete file and return list of deleted block IDs"""
-        file_meta = common_pb2.File(file_name=file_name)
+        file_meta = common_pb2.File(
+            file_name=file_name,
+            file_size=0
+        )
         request = namenode_pb2.DeleteFileRequest(file_details=file_meta)
         response = self.stub.DeleteFile(request)
-        return response
+
+        if not response.status.success:
+            raise Exception(response.status.message)
+        
+        return response.block_ids
+    
+    def list_files(self):
+        request = namenode_pb2.ListFilesRequest()
+
+        response = self.stub.ListFiles(request)
+
+        return [
+            f.file_name
+            for f in response.file_details
+        ]

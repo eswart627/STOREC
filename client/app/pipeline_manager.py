@@ -1,11 +1,17 @@
-from concurrent.futures import ThreadPoolExecutor
 import os
 import time
 import logging
 from .stripe_builder import StripeBuilder
 from .encoder import Encoder
 from .transfer import DataNodeClient
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    wait,
+    FIRST_COMPLETED
+)
 from .config_loader import (K, M, BLOCK_SIZE)
+
+from .parallel_writer import ParallelStripeWriter
 
 class PipelineManager:
     def __init__(self,block_groups, mode="single", max_workers=4):
@@ -20,6 +26,12 @@ class PipelineManager:
         self.total_stripes_processed = 0
         self.total_bytes_read =0
         self.metrics_report = []
+        self.stripe_build_times = []
+        self.network_throughput_measurements = []
+        self.parallel_writer = ParallelStripeWriter(
+                self.encoder,
+                self.metrics_report
+        )
         
     def _print_table(self,file_name,file_path):
         if not self.metrics_report:
@@ -34,33 +46,177 @@ class PipelineManager:
         lines.append(f" UPLOAD REPORT | Mode: {self.mode.upper()} | File: {file_name} => Size: ({file_size_mb:.2f} MB)")
         lines.append(f"{'='*95}")
         
-        header = f"{'Block ID':<40} | {'Node':<20} | {'Latency':<10} | {'Throughput':<15}"
+        header = f"{'Block ID':<40} | {'Node':<20} | {'Latency':<10} | {'Throughput':<15} | {'Net TP':<10}"
         lines.append(header)
         lines.append("-" * len(header))
 
-        t_lat, t_tp = 0, 0
+        t_lat, t_tp, t_net_tp = 0, 0, 0
         for m in self.metrics_report:
             t_lat += m['lat']
             t_tp += m['tp']
-            lines.append(f"{m['id']:<40} | {m['node']:<20} | {m['lat']:>8.4f}s | {m['tp']:>8.2f} MB/s")
+            t_net_tp += m.get('net_tp', 0)
+            net_tp_str = f"{m.get('net_tp', 0):>8.2f}" if 'net_tp' in m else "N/A"
+            lines.append(f"{m['id']:<40} | {m['node']:<20} | {m['lat']:>8.4f}s | {m['tp']:>8.2f} MB/s | {net_tp_str} MB/s")
 
         lines.append("-" * len(header))
         
         avg_lat = t_lat / len(self.metrics_report)
         avg_tp = t_tp / len(self.metrics_report)
+        avg_net_tp = t_net_tp / len([m for m in self.metrics_report if 'net_tp' in m]) if any('net_tp' in m for m in self.metrics_report) else 0
         
-        lines.append(f"{'AVERAGE':<63} | {avg_lat:>8.4f}s | {avg_tp:>8.2f} MB/s")
+        avg_net_tp_str = f"{avg_net_tp:>8.2f}" if avg_net_tp > 0 else "N/A"
+        lines.append(f"{'AVERAGE':<63} | {avg_lat:>8.4f}s | {avg_tp:>8.2f} MB/s | {avg_net_tp_str} MB/s")
         lines.append(f"{'='*95}\n")
         
         # --- NEW: Log Total Execution Time here ---
         lines.append(f"{'TOTAL UPLOAD DURATION':<63} | {self.total_execution_time:>8.4f}s")
         lines.append(f"{'='*95}\n")
         
+        # --- NEW: Stripe Build Time Metrics ---
+        if self.stripe_build_times:
+            lines.append(f"\n{'STRIPE BUILD TIME METRICS':<95}")
+            lines.append(f"{'='*95}")
+            
+            total_stripe_time = sum(self.stripe_build_times)
+            avg_stripe_time = total_stripe_time / len(self.stripe_build_times)
+            
+            lines.append(f"Total stripes processed: {len(self.stripe_build_times)}")
+            lines.append(f"Total stripe build time: {total_stripe_time:.4f}s")
+            lines.append(f"Average stripe build time: {avg_stripe_time:.4f}s")
+            
+            if file_size_bytes > 0:
+                stripe_time_per_mb = total_stripe_time / (file_size_bytes / (1024 * 1024))
+                lines.append(f"Stripe build time per MB: {stripe_time_per_mb:.4f}s/MB")
+            
+            lines.append(f"{'='*95}\n")
+        
+        # --- NEW: Network Throughput Metrics ---
+        if self.network_throughput_measurements:
+            lines.append(f"\n{'NETWORK THROUGHPUT METRICS':<95}")
+            lines.append(f"{'='*95}")
+            
+            total_net_tp = sum(m['network_throughput_mbps'] for m in self.network_throughput_measurements)
+            avg_net_tp = total_net_tp / len(self.network_throughput_measurements)
+            
+            lines.append(f"Total network tests: {len(self.network_throughput_measurements)}")
+            lines.append(f"Average network throughput: {avg_net_tp:.2f} MB/s")
+            lines.append(f"Total network throughput: {total_net_tp:.2f} MB/s")
+            
+            # Network throughput per node
+            node_network_tps = {}
+            for m in self.network_throughput_measurements:
+                node = m['node']
+                if node not in node_network_tps:
+                    node_network_tps[node] = []
+                node_network_tps[node].append(m['network_throughput_mbps'])
+            
+            lines.append(f"\nNetwork throughput by node:")
+            for node, tps in node_network_tps.items():
+                avg_node_tp = sum(tps) / len(tps)
+                lines.append(f"  {node}: {avg_node_tp:.2f} MB/s ({len(tps)} tests)")
+            
+            lines.append(f"{'='*95}\n")
+        
         # Log each line to the file
         for line in lines:
             logging.info(line)
             # Optional: keep the print(line) here if you still want to see it in terminal
         print(f"Upload complete. Metrics logged to client.log")
+
+    def get_metrics_tuple(self):
+        """
+        Returns all current metrics as a tuple for programmatic access.
+        
+        Returns:
+            tuple: (total_stripes, total_blocks, total_bytes, stripe_metrics, block_metrics)
+        """
+        # Stripe build time metrics
+        if self.stripe_build_times:
+            total_stripe_time = sum(self.stripe_build_times)
+            avg_stripe_time = total_stripe_time / len(self.stripe_build_times)
+            stripe_metrics = {
+                'total_stripes': len(self.stripe_build_times),
+                'total_stripe_time': total_stripe_time,
+                'avg_stripe_time': avg_stripe_time,
+                'stripe_times_list': self.stripe_build_times.copy()
+            }
+        else:
+            stripe_metrics = {
+                'total_stripes': 0,
+                'total_stripe_time': 0,
+                'avg_stripe_time': 0,
+                'stripe_times_list': []
+            }
+        
+        # Block write metrics
+        if self.metrics_report:
+            total_latency = sum(m['lat'] for m in self.metrics_report)
+            avg_latency = total_latency / len(self.metrics_report)
+            total_throughput = sum(m['tp'] for m in self.metrics_report)
+            avg_throughput = total_throughput / len(self.metrics_report)
+            
+            block_metrics = {
+                'total_blocks': len(self.metrics_report),
+                'total_latency': total_latency,
+                'avg_latency': avg_latency,
+                'total_throughput': total_throughput,
+                'avg_throughput': avg_throughput,
+                'block_details': self.metrics_report.copy()
+            }
+        else:
+            block_metrics = {
+                'total_blocks': 0,
+                'total_latency': 0,
+                'avg_latency': 0,
+                'total_throughput': 0,
+                'avg_throughput': 0,
+                'block_details': []
+            }
+        
+        # Network throughput metrics
+        if self.network_throughput_measurements:
+            total_net_tp = sum(m['network_throughput_mbps'] for m in self.network_throughput_measurements)
+            avg_net_tp = total_net_tp / len(self.network_throughput_measurements)
+            
+            # Network throughput per node
+            node_network_tps = {}
+            for m in self.network_throughput_measurements:
+                node = m['node']
+                if node not in node_network_tps:
+                    node_network_tps[node] = []
+                node_network_tps[node].append(m['network_throughput_mbps'])
+            
+            network_metrics = {
+                'total_tests': len(self.network_throughput_measurements),
+                'total_network_throughput': total_net_tp,
+                'avg_network_throughput': avg_net_tp,
+                'node_throughputs': {node: {'avg': sum(tps)/len(tps), 'count': len(tps), 'measurements': tps} 
+                                  for node, tps in node_network_tps.items()},
+                'measurements': self.network_throughput_measurements.copy()
+            }
+        else:
+            network_metrics = {
+                'total_tests': 0,
+                'total_network_throughput': 0,
+                'avg_network_throughput': 0,
+                'node_throughputs': {},
+                'measurements': []
+            }
+        
+        # Overall metrics
+        overall_metrics = {
+            'total_stripes_processed': self.total_stripes_processed,
+            'total_bytes_read': self.total_bytes_read,
+            'total_execution_time': self.total_execution_time,
+            'written_block_ids': self.written_block_ids.copy()
+        }
+        
+        return (
+            overall_metrics,
+            stripe_metrics,
+            block_metrics,
+            network_metrics
+        )
 
     def _process_stripe(self, stripe_index, data_blocks, placements):
         #print(f"Processing stripe {stripe_index}")
@@ -75,6 +231,12 @@ class PipelineManager:
                 node.hostname,
                 node.port
             )
+            
+            # Measure network throughput for this block transfer
+            network_metrics = client.measure_network_throughput(
+                test_size_mb=max(1, int(len(block_data) / (1024 * 1024)))  # Use block size or 1MB minimum
+            )
+            
             response = client.write_block(placement.block_id, block_data)
             
             if not response.status.success:
@@ -86,7 +248,17 @@ class PipelineManager:
                 'id': placement.block_id,
                 'node': node_addr,
                 'lat': metrics.latency_seconds,
-                'tp': metrics.throughput_mbs
+                'tp': metrics.throughput_mbs,
+                'net_tp': network_metrics['network_throughput_mbps']  # Add network throughput
+            })
+            
+            # Store network throughput measurements separately
+            self.network_throughput_measurements.append({
+                'block_id': placement.block_id,
+                'node': node_addr,
+                'network_throughput_mbps': network_metrics['network_throughput_mbps'],
+                'test_size_mb': network_metrics['test_size_mb'],
+                'transfer_time_seconds': network_metrics['transfer_time_seconds']
             })
             
             #log_msg = (f"[Metric] Block {placement.block_id} write successful ->. "
@@ -98,22 +270,42 @@ class PipelineManager:
         return local_ids
 
     def run(self, file_path):
-        file_name = os.path.basename(file_path)
-        self.written_block_ids=[]
-        
-        
-        start_time = time.time()
-        if self.mode == "single":
-            res = self._run_single_threaded(file_path)
-        elif self.mode == "parallel":
-            res = self._run_parallel(file_path)
-        else:
-            raise Exception("Invalid pipeline mode")
-        
-        self.total_execution_time = time.time() - start_time
-        self._print_table(file_name,file_path)
-        return res
 
+        file_name = os.path.basename(file_path)
+
+        self.written_block_ids = []
+
+        start_time = time.time()
+
+        if self.mode == "single":
+
+            res = self._run_single_threaded(file_path)
+
+        elif self.mode == "parallel":
+
+            res = self._run_parallel(file_path)
+
+        elif self.mode == "block_parallel":
+
+            res = self._run_block_parallel(file_path)
+
+        else:
+
+            raise Exception(
+                f"Invalid pipeline mode: {self.mode}"
+            )
+
+        self.total_execution_time = (
+            time.time() - start_time
+        )
+
+        self._print_table(
+            file_name,
+            file_path
+        )
+
+        return res
+    
     def _run_single_threaded(self, file_path):
         file_size = os.path.getsize(file_path)
 
@@ -178,6 +370,12 @@ class PipelineManager:
                     )
 
                     client = DataNodeClient(hostname, port)
+                    
+                    # Measure network throughput for this block transfer
+                    network_metrics = client.measure_network_throughput(
+                        test_size_mb=max(1, int(len(block_data) / (1024 * 1024)))  # Use block size or 1MB minimum
+                    )
+                    
                     response = client.write_block(
                         block_id,
                         block_data
@@ -191,7 +389,17 @@ class PipelineManager:
                         "id": placement.block_id,
                         "node": f"{node.hostname}:{node.port}",
                         "lat": metrics.latency_seconds,
-                        "tp": metrics.throughput_mbs
+                        "tp": metrics.throughput_mbs,
+                        "net_tp": network_metrics['network_throughput_mbps']  # Add network throughput
+                    })
+                    
+                    # Store network throughput measurements separately
+                    self.network_throughput_measurements.append({
+                        'block_id': placement.block_id,
+                        'node': f"{node.hostname}:{node.port}",
+                        'network_throughput_mbps': network_metrics['network_throughput_mbps'],
+                        'test_size_mb': network_metrics['test_size_mb'],
+                        'transfer_time_seconds': network_metrics['transfer_time_seconds']
                     })
                     #print(f"      >> Metric: Latency={metrics.latency_seconds:.4f}s, Disk Speed={metrics.throughput_mbs:.2f} MB/s")
                     # log_msg = (f"[Metric] Block {block_id} write successful ->. "
@@ -202,6 +410,7 @@ class PipelineManager:
                 stripe_index += 1
                 
         finally: 
+            self.stripe_build_times = builder.get_stripe_build_times()
             builder.close()
             print()
             print("Processing summary")
@@ -225,25 +434,52 @@ class PipelineManager:
         return self.written_block_ids
     
     def _run_parallel(self, file_path):
+
         print(
             f"Running parallel pipeline "
-            f"workers={self.max_workers}"
+            f"workers={self.max_workers}",
+            flush=True
         )
+
         builder = StripeBuilder(file_path)
+
+        executor = ThreadPoolExecutor(
+            max_workers=self.max_workers
+        )
+
+        active_futures = set()
+
         stripe_index = 0
-        futures = []
-        executor = ThreadPoolExecutor(max_workers=self.max_workers)
+
+        total_stripes = len(
+            self.block_groups
+        )
+
         try:
-            while True:
-                data_blocks = builder.next_stripe()
+
+            while (
+                stripe_index < total_stripes
+                and len(active_futures)
+                < self.max_workers
+            ):
+
+                data_blocks = (
+                    builder.next_stripe()
+                )
+
                 if data_blocks is None:
                     break
-                if stripe_index >= len(self.block_groups):
-                    raise Exception(
-                        "More stripes processed than allocated"
-                    )
+
                 placements = (
-                    self.block_groups[stripe_index].placement
+                    self.block_groups[
+                        stripe_index
+                    ].placement
+                )
+
+                print(
+                    f"Dispatching stripe "
+                    f"{stripe_index}",
+                    flush=True
                 )
 
                 future = executor.submit(
@@ -253,14 +489,171 @@ class PipelineManager:
                     placements
                 )
 
-                futures.append(future)
+                future.stripe_id = (
+                    stripe_index
+                )
+
+                active_futures.add(
+                    future
+                )
+
                 stripe_index += 1
 
-            for future in futures:
-                block_ids = future.result()
-                self.written_block_ids.extend(block_ids)
+            while active_futures:
+
+                done, active_futures = wait(
+                    active_futures,
+                    return_when=
+                    FIRST_COMPLETED
+                )
+
+                for finished in done:
+
+                    stripe_id = (
+                        finished.stripe_id
+                    )
+
+                    block_ids = (
+                        finished.result()
+                    )
+
+                    print(
+                        f"Stripe "
+                        f"{stripe_id} "
+                        f"completed",
+                        flush=True
+                    )
+
+                    self.written_block_ids.extend(
+                        block_ids
+                    )
+
+                    if stripe_index < total_stripes:
+
+                        data_blocks = (
+                            builder.next_stripe()
+                        )
+
+                        if data_blocks is not None:
+
+                            placements = (
+                                self.block_groups[
+                                    stripe_index
+                                ].placement
+                            )
+
+                            print(
+                                f"Dispatching stripe "
+                                f"{stripe_index}",
+                                flush=True
+                            )
+
+                            new_future = (
+                                executor.submit(
+                                    self._process_stripe,
+                                    stripe_index,
+                                    data_blocks,
+                                    placements
+                                )
+                            )
+
+                            new_future.stripe_id = (
+                                stripe_index
+                            )
+
+                            active_futures.add(
+                                new_future
+                            )
+
+                            stripe_index += 1
+
         finally:
+
+            self.stripe_build_times = builder.get_stripe_build_times()
             builder.close()
+
             executor.shutdown()
+
+            print(
+                "Parallel pipeline finished",
+                flush=True
+            )
+
         return self.written_block_ids
-    
+
+    def _run_block_parallel(self, file_path):
+
+        print(
+            "Running block-parallel pipeline",
+            flush=True
+        )
+
+        builder = StripeBuilder(
+            file_path
+        )
+
+        stripe_index = 0
+
+        total_stripes = len(
+            self.block_groups
+        )
+
+        try:
+
+            while True:
+
+                data_blocks = (
+                    builder.next_stripe()
+                )
+
+                if data_blocks is None:
+                    break
+
+                if stripe_index >= total_stripes:
+
+                    raise Exception(
+                        "More stripes processed "
+                        "than allocated"
+                    )
+
+                placements = (
+                    self.block_groups[
+                        stripe_index
+                    ].placement
+                )
+
+                print(
+                    f"Processing stripe "
+                    f"{stripe_index}",
+                    flush=True
+                )
+
+                block_ids = (
+                    self.parallel_writer
+                    .process_stripe(
+                        stripe_index,
+                        data_blocks,
+                        placements
+                    )
+                )
+
+                self.written_block_ids.extend(
+                    block_ids
+                )
+
+                stripe_index += 1
+
+        finally:
+
+            self.stripe_build_times = builder.get_stripe_build_times()
+            builder.close()
+
+            print(
+                "Block-parallel pipeline finished",
+                flush=True
+            )
+
+        return self.written_block_ids
+
+
+        
