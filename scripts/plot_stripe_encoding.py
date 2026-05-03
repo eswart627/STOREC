@@ -1,124 +1,112 @@
 #!/usr/bin/env python3
-"""
-Script to plot Stripe Build + Encoding time comparison.
-Generates 3 separate graphs (one per mode) showing Total and Average times.
-"""
 
 import sys
 import os
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-try:
-    import pandas as pd
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-    from matplotlib.ticker import ScalarFormatter
-except ImportError:
-    print("Error: pandas, seaborn, and matplotlib are required.")
-    print("Please install them using: pip install pandas seaborn matplotlib")
-    sys.exit(1)
 
 def plot_combined_metrics(csv_path):
     if not os.path.exists(csv_path):
         print(f"Error: CSV file {csv_path} not found")
         return
 
-    try:
-        df = pd.read_csv(csv_path)
-    except Exception as e:
-        print(f"Error reading CSV: {e}")
-        return
+    df = pd.read_csv(csv_path)
 
     if df.empty:
         print("No data found in CSV")
         return
 
-    # Filter for sizes >= 1MB
     df = df[df['size_mb'] >= 1]
-    
-    # Calculate combined metrics
-    # Total Time = Stripe Build Time + Encoding Time
+
+    # Derived metrics
     df['total_time'] = df['total_stripe_build_time'] + df['total_encoding_time']
-    # Average Time = Avg Stripe Build + Avg Encoding per stripe
     df['avg_time'] = df['avg_stripe_build_time'] + df['avg_encoding_time_per_stripe']
 
-    # Sort by size
-    df = df.sort_values(by='size_mb')
+    df = df.sort_values(by=['size_mb', 'mode'])
 
-    modes = ['SINGLE', 'PARALLEL', 'BLOCK_PARALLEL']
     sns.set_theme(style="whitegrid", context="talk")
 
-    # Create a figure with 2 subplots (Total and Average)
-    fig, axes = plt.subplots(1, 2, figsize=(20, 9), sharey=False)
-    
-    # Custom colors for modes
-    mode_colors = {
-        'SINGLE': '#3498db',         # Blue
-        'PARALLEL': '#2ecc71',       # Green
-        'BLOCK_PARALLEL': '#e74c3c'  # Red
+    fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
+
+    palette = {
+        'SINGLE': '#4C72B0',
+        'PARALLEL': '#55A868',
+        'BLOCK_PARALLEL': '#C44E52'
     }
 
-    import matplotlib.ticker as ticker
-
-    # Plot 1: Total Time (Stripe Build + Encoding)
+    # -----------------------------
+    # TOTAL TIME
+    # -----------------------------
     ax1 = axes[0]
-    for mode in modes:
-        mode_df = df[df['mode'] == mode]
-        if not mode_df.empty:
-            sns.lineplot(
-                data=mode_df, x='size_mb', y='total_time', 
-                marker='o', markersize=10, linewidth=3, label=f'{mode}',
-                color=mode_colors.get(mode), ax=ax1
-            )
-    
-    ax1.set_title('Total Time (Build + Encode)', fontsize=18, fontweight='bold')
-    ax1.set_xlabel('File Size (MB)', fontsize=14, fontweight='bold')
-    ax1.set_ylabel('Total Time (seconds)', fontsize=14, fontweight='bold')
+
+    sns.lineplot(
+        data=df,
+        x='size_mb',
+        y='total_time',
+        hue='mode',
+        style='mode',
+        markers=True,
+        dashes=False,
+        linewidth=2.5,
+        markersize=6,
+        palette=palette,
+        ax=ax1
+    )
+
+    ax1.set_title('Total Time (Build + Encode)', fontsize=16, weight='bold')
+    ax1.set_xlabel('File Size (MB)')
+    ax1.set_ylabel('Time (seconds)')
+
     ax1.set_xscale('log', base=2)
-    ax1.xaxis.set_major_formatter(ScalarFormatter())
     ax1.set_xticks(sorted(df['size_mb'].unique()))
     ax1.set_xlim(left=df['size_mb'].min())
-    ax1.set_ylim(bottom=0)
-    
-    # Set Y-axis scale to 2 seconds per unit
-    ax1.yaxis.set_major_locator(ticker.MultipleLocator(2))
-    
-    ax1.grid(True, linestyle='--', alpha=0.5)
-    ax1.legend(title='Mode')
 
-    # Plot 2: Average Time per Stripe
+    # -----------------------------
+    # AVG TIME (same scale)
+    # -----------------------------
     ax2 = axes[1]
-    for mode in modes:
-        mode_df = df[df['mode'] == mode]
-        if not mode_df.empty:
-            sns.lineplot(
-                data=mode_df, x='size_mb', y='avg_time', 
-                marker='s', markersize=10, linewidth=3, label=f'{mode}',
-                color=mode_colors.get(mode), ax=ax2
-            )
 
-    ax2.set_title('Average Time per Stripe', fontsize=18, fontweight='bold')
-    ax2.set_xlabel('File Size (MB)', fontsize=14, fontweight='bold')
-    ax2.set_ylabel('Avg Time (seconds)', fontsize=14, fontweight='bold')
+    sns.lineplot(
+        data=df,
+        x='size_mb',
+        y='avg_time',
+        hue='mode',
+        style='mode',
+        markers=True,
+        dashes=False,
+        linewidth=2.5,
+        markersize=6,
+        palette=palette,
+        ax=ax2
+    )
+
+    ax2.set_title('Average Time per Stripe', fontsize=16, weight='bold')
+    ax2.set_xlabel('File Size (MB)')
+    ax2.set_ylabel('Time (seconds)')
+
     ax2.set_xscale('log', base=2)
-    ax2.xaxis.set_major_formatter(ScalarFormatter())
     ax2.set_xticks(sorted(df['size_mb'].unique()))
     ax2.set_xlim(left=df['size_mb'].min())
-    ax2.set_ylim(bottom=0)
-    
-    # Set Y-axis scale to 2 seconds per unit
-    ax2.yaxis.set_major_locator(ticker.MultipleLocator(2))
-    
-    ax2.grid(True, linestyle='--', alpha=0.5)
+
+    # 🔥 KEY FIX: same Y scale for both
+    ax1.set_ylim(0, 32)
+    ax2.set_ylim(0, 32)
+
+    # Legends
+    ax1.legend(title='Mode')
     ax2.legend(title='Mode')
 
-    plt.suptitle('Stripe Build + Encoding Metrics Comparison', fontsize=22, fontweight='bold', y=1.05)
+    plt.suptitle('Stripe Build + Encoding Metrics Comparison',
+                 fontsize=20, weight='bold')
+
     plt.tight_layout()
-    
-    output_file = 'stripe_encoding_metrics_one_fig.png'
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
-    print(f"\nSuccessfully generated comparison plot: {output_file}")
-    print(f"Modes compared: {', '.join(modes)}")
+    plt.savefig("stripe_encoding_consistent.png", dpi=300, bbox_inches='tight')
+
+    print("Saved: stripe_encoding_consistent.png")
+
 
 if __name__ == "__main__":
-    csv_file = sys.argv[1] if len(sys.argv) > 1 else 'metrics.csv'
+    csv_file = sys.argv[1] if len(sys.argv) > 1 else "metrics.csv"
     plot_combined_metrics(csv_file)
