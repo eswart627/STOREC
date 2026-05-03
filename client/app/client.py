@@ -38,6 +38,7 @@ def upload_file(file_path, mode,max_workers):
             block_ids
         )
         print("Upload completed successfully")
+        return pipeline.get_metrics_tuple()
 
     except Exception as e:
         # Check if it's the duplicate entry error

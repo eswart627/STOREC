@@ -27,6 +27,7 @@ class PipelineManager:
         self.total_bytes_read =0
         self.metrics_report = []
         self.stripe_build_times = []
+        self.encoding_times = []
         self.network_throughput_measurements = []
         self.parallel_writer = ParallelStripeWriter(
                 self.encoder,
@@ -87,6 +88,24 @@ class PipelineManager:
             if file_size_bytes > 0:
                 stripe_time_per_mb = total_stripe_time / (file_size_bytes / (1024 * 1024))
                 lines.append(f"Stripe build time per MB: {stripe_time_per_mb:.4f}s/MB")
+            
+            lines.append(f"{'='*95}\n")
+        
+        # --- NEW: Encoding Time Metrics ---
+        if self.encoding_times:
+            lines.append(f"\n{'ENCODING TIME METRICS':<95}")
+            lines.append(f"{'='*95}")
+            
+            total_encoding_time = sum(self.encoding_times)
+            avg_encoding_time = total_encoding_time / len(self.encoding_times)
+            
+            lines.append(f"Total stripes encoded: {len(self.encoding_times)}")
+            lines.append(f"Total encoding time: {total_encoding_time:.4f}s")
+            lines.append(f"Average encoding time per stripe: {avg_encoding_time:.4f}s")
+            
+            if file_size_bytes > 0:
+                encoding_time_per_mb = total_encoding_time / (file_size_bytes / (1024 * 1024))
+                lines.append(f"Encoding time per MB: {encoding_time_per_mb:.4f}s/MB")
             
             lines.append(f"{'='*95}\n")
         
@@ -203,6 +222,22 @@ class PipelineManager:
                 'measurements': []
             }
         
+        # Encoding metrics
+        if self.encoding_times:
+            total_encoding_time = sum(self.encoding_times)
+            avg_encoding_time = total_encoding_time / len(self.encoding_times)
+            encoding_metrics = {
+                'total_encoding_time': total_encoding_time,
+                'avg_encoding_time': avg_encoding_time,
+                'encoding_times_list': self.encoding_times.copy()
+            }
+        else:
+            encoding_metrics = {
+                'total_encoding_time': 0,
+                'avg_encoding_time': 0,
+                'encoding_times_list': []
+            }
+
         # Overall metrics
         overall_metrics = {
             'total_stripes_processed': self.total_stripes_processed,
@@ -215,7 +250,8 @@ class PipelineManager:
             overall_metrics,
             stripe_metrics,
             block_metrics,
-            network_metrics
+            network_metrics,
+            encoding_metrics
         )
 
     def _process_stripe(self, stripe_index, data_blocks, placements):
