@@ -27,6 +27,8 @@ class PipelineManager:
         self.total_bytes_read =0
         self.metrics_report = []
         self.stripe_build_times = []
+        self.read_times = []
+        self.encoding_times = []
         self.network_throughput_measurements = []
         self.parallel_writer = ParallelStripeWriter(
                 self.encoder,
@@ -77,12 +79,21 @@ class PipelineManager:
             lines.append(f"\n{'STRIPE BUILD TIME METRICS':<95}")
             lines.append(f"{'='*95}")
             
+            total_read_time = sum(self.read_times)
+            total_encode_time = sum(self.encoding_times)
             total_stripe_time = sum(self.stripe_build_times)
+            
+            avg_read_time = total_read_time / len(self.read_times) if self.read_times else 0
+            avg_encode_time = total_encode_time / len(self.encoding_times) if self.encoding_times else 0
             avg_stripe_time = total_stripe_time / len(self.stripe_build_times)
             
             lines.append(f"Total stripes processed: {len(self.stripe_build_times)}")
             lines.append(f"Total stripe build time: {total_stripe_time:.4f}s")
+            lines.append(f"  - Total read time:     {total_read_time:.4f}s")
+            lines.append(f"  - Total encode time:   {total_encode_time:.4f}s")
             lines.append(f"Average stripe build time: {avg_stripe_time:.4f}s")
+            lines.append(f"  - Avg read time:       {avg_read_time:.4f}s")
+            lines.append(f"  - Avg encode time:     {avg_encode_time:.4f}s")
             
             if file_size_bytes > 0:
                 stripe_time_per_mb = total_stripe_time / (file_size_bytes / (1024 * 1024))
@@ -132,20 +143,38 @@ class PipelineManager:
         """
         # Stripe build time metrics
         if self.stripe_build_times:
+            total_read_time = sum(self.read_times)
+            total_encode_time = sum(self.encoding_times)
             total_stripe_time = sum(self.stripe_build_times)
+            
+            avg_read_time = total_read_time / len(self.read_times) if self.read_times else 0
+            avg_encode_time = total_encode_time / len(self.encoding_times) if self.encoding_times else 0
             avg_stripe_time = total_stripe_time / len(self.stripe_build_times)
+            
             stripe_metrics = {
                 'total_stripes': len(self.stripe_build_times),
                 'total_stripe_time': total_stripe_time,
                 'avg_stripe_time': avg_stripe_time,
-                'stripe_times_list': self.stripe_build_times.copy()
+                'total_read_time': total_read_time,
+                'avg_read_time': avg_read_time,
+                'total_encode_time': total_encode_time,
+                'avg_encode_time': avg_encode_time,
+                'stripe_times_list': self.stripe_build_times.copy(),
+                'read_times_list': self.read_times.copy(),
+                'encode_times_list': self.encoding_times.copy()
             }
         else:
             stripe_metrics = {
                 'total_stripes': 0,
                 'total_stripe_time': 0,
                 'avg_stripe_time': 0,
-                'stripe_times_list': []
+                'total_read_time': 0,
+                'avg_read_time': 0,
+                'total_encode_time': 0,
+                'avg_encode_time': 0,
+                'stripe_times_list': [],
+                'read_times_list': [],
+                'encode_times_list': []
             }
         
         # Block write metrics
@@ -221,7 +250,9 @@ class PipelineManager:
     def _process_stripe(self, stripe_index, data_blocks, placements):
         #print(f"Processing stripe {stripe_index}")
         #logging.info(f"Processing stripe {stripe_index}")
+        encode_start = time.time()
         blocks = self.encoder.encode(data_blocks)
+        encode_time = time.time() - encode_start
         local_ids = []
 
         for block_data, placement in zip(blocks, placements):
@@ -267,7 +298,7 @@ class PipelineManager:
             #logging.info(log_msg)
             
             local_ids.append(placement.block_id)
-        return local_ids
+        return local_ids, encode_time
 
     def run(self, file_path):
 
@@ -337,7 +368,9 @@ class PipelineManager:
                 )
 
                 # encoding
+                encode_start = time.time()
                 blocks = self.encoder.encode(data_blocks)
+                self.encoding_times.append(time.time() - encode_start)
                 print(
                     f"  Blocks after encoding: {len(blocks)} "
                     f"(expected {K + M})"
@@ -410,7 +443,8 @@ class PipelineManager:
                 stripe_index += 1
                 
         finally: 
-            self.stripe_build_times = builder.get_stripe_build_times()
+            self.read_times = builder.get_stripe_build_times()
+            self.stripe_build_times = [r + e for r, e in zip(self.read_times, self.encoding_times)]
             builder.close()
             print()
             print("Processing summary")
@@ -513,7 +547,7 @@ class PipelineManager:
                         finished.stripe_id
                     )
 
-                    block_ids = (
+                    block_ids, encode_time = (
                         finished.result()
                     )
 
@@ -527,6 +561,7 @@ class PipelineManager:
                     self.written_block_ids.extend(
                         block_ids
                     )
+                    self.encoding_times.append(encode_time)
 
                     if stripe_index < total_stripes:
 
@@ -628,7 +663,7 @@ class PipelineManager:
                     flush=True
                 )
 
-                block_ids = (
+                block_ids, encode_time = (
                     self.parallel_writer
                     .process_stripe(
                         stripe_index,
@@ -640,12 +675,14 @@ class PipelineManager:
                 self.written_block_ids.extend(
                     block_ids
                 )
+                self.encoding_times.append(encode_time)
 
                 stripe_index += 1
 
         finally:
 
-            self.stripe_build_times = builder.get_stripe_build_times()
+            self.read_times = builder.get_stripe_build_times()
+            self.stripe_build_times = [r + e for r, e in zip(self.read_times, self.encoding_times)]
             builder.close()
 
             print(
