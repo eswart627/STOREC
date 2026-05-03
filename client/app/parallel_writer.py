@@ -1,3 +1,4 @@
+import time
 from concurrent.futures import (
     ThreadPoolExecutor,
     as_completed
@@ -65,9 +66,11 @@ class ParallelStripeWriter:
         # Encode stripe
         # --------------------------------------------
 
+        encode_start = time.time()
         blocks = self.encoder.encode(
             data_blocks
         )
+        encode_time = time.time() - encode_start
 
         if len(blocks) != len(placements):
             raise Exception(
@@ -126,7 +129,7 @@ class ParallelStripeWriter:
             flush=True
         )
 
-        return local_ids
+        return local_ids, encode_time
 
     def _write_block(
         self,

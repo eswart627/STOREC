@@ -257,7 +257,9 @@ class PipelineManager:
     def _process_stripe(self, stripe_index, data_blocks, placements):
         #print(f"Processing stripe {stripe_index}")
         #logging.info(f"Processing stripe {stripe_index}")
+        encode_start = time.time()
         blocks = self.encoder.encode(data_blocks)
+        encode_time = time.time() - encode_start
         local_ids = []
 
         for block_data, placement in zip(blocks, placements):
@@ -303,7 +305,7 @@ class PipelineManager:
             #logging.info(log_msg)
             
             local_ids.append(placement.block_id)
-        return local_ids
+        return local_ids, encode_time
 
     def run(self, file_path):
 
@@ -373,7 +375,9 @@ class PipelineManager:
                 )
 
                 # encoding
+                encode_start = time.time()
                 blocks = self.encoder.encode(data_blocks)
+                self.encoding_times.append(time.time() - encode_start)
                 print(
                     f"  Blocks after encoding: {len(blocks)} "
                     f"(expected {K + M})"
@@ -549,7 +553,7 @@ class PipelineManager:
                         finished.stripe_id
                     )
 
-                    block_ids = (
+                    block_ids, encode_time = (
                         finished.result()
                     )
 
@@ -563,6 +567,7 @@ class PipelineManager:
                     self.written_block_ids.extend(
                         block_ids
                     )
+                    self.encoding_times.append(encode_time)
 
                     if stripe_index < total_stripes:
 
@@ -664,7 +669,7 @@ class PipelineManager:
                     flush=True
                 )
 
-                block_ids = (
+                block_ids, encode_time = (
                     self.parallel_writer
                     .process_stripe(
                         stripe_index,
@@ -676,6 +681,7 @@ class PipelineManager:
                 self.written_block_ids.extend(
                     block_ids
                 )
+                self.encoding_times.append(encode_time)
 
                 stripe_index += 1
 
